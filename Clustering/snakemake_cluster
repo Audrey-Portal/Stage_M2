@@ -1,0 +1,69 @@
+####Dry RUN command :
+#nohup snakemake -j 500 -s snakemake_cluster_triplets -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_cluster_triplets.out &
+####Unlock command :
+#nohup snakemake -j 500 -s snakemake_cluster_triplets --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_cluster_triplets.out &
+####Real command :
+#nohup snakemake -j 500 -s snakemake_cluster_triplets --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_cluster_triplets.out &
+
+import re
+import os
+
+#paths
+bin_dir="/beegfs/project/horizon/bin/miniconda3/bin/"   #bin du projet horizon où se trouvent les programmes
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Clustering/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/Clustering/"   #là où vont les logs de chaque script
+triplets_dir="/beegfs/data/aportal/horizon/Clustering/triplets/"   #où se trouvent les séquences codantes des espèces par triplets
+clusters_dir="/beegfs/data/aportal/horizon/Clustering/clusters/" #où se trouvent les résultats des clusters
+
+#triplets_list
+triplets_file = open('/beegfs/data/aportal/horizon/lists/triplets_list.txt', 'r')
+list_triplets = triplets_file.read().split('\n') 
+list_triplets = list_triplets[:-1] 
+
+rule all:
+        input:
+                expand(triplets_dir+"{triplet}_DB/{triplet}_DB", triplet = list_triplets), #rule triplet_database
+                expand(clusters_dir+"{triplet}/cluster_{triplet}.tsv", triplet = list_triplets), #rule clustering
+                expand(clusters_dir+"{triplet}/cluster_{triplet}_seq.fa", triplet = list_triplets) #rule clustering
+
+localrules:
+        triplet_database
+
+rule triplet_database:
+        input:
+                triplet_fa=triplets_dir+"{triplet}.fa"
+        output:
+                triplet_DB=triplets_dir+"{triplet}_DB/{triplet}_DB"
+        shell:
+                """
+                mkdir -p {triplets_dir}{wildcards.triplet}_DB/
+                {bin_dir}mmseqs createdb {input.triplet_fa} {output.triplet_DB}
+                """
+
+rule clustering:
+        params:
+                name="clustering_{triplet}",
+                out=logs_dir+"clustering_{triplet}.out",
+                err=logs_dir+"clustering_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="5:00:00",
+                mem="20G"
+        input:
+                triplet_DB=triplets_dir+"{triplet}_DB/{triplet}_DB"
+        output:
+                cluster_triplet_tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv",
+                cluster_triplet_seq_fa=clusters_dir+"{triplet}/cluster_{triplet}_seq.fa"
+        shell:
+                """
+                mkdir -p {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}/
+                {bin_dir}mmseqs cluster {input.triplet_DB} {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}/cluster_{wildcards.triplet} --min-seq-id 0.90 --cluster-mode 2 --cov-mode 1 {clusters_dir}{wildcards.triplet}/tmpclu_{wildcards.triplet}
+
+                {bin_dir}mmseqs createtsv {input.triplet_DB} {input.triplet_DB} {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}/cluster_{wildcards.triplet} {output.cluster_triplet_tsv}
+
+                mkdir -p {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_seq/
+                {bin_dir}mmseqs createseqfiledb {input.triplet_DB} {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}/cluster_{wildcards.triplet} {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_seq/cluster_{wildcards.triplet}_seq
+                {bin_dir}mmseqs result2flat {input.triplet_DB} {input.triplet_DB} {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_seq/cluster_{wildcards.triplet}_seq {output.cluster_triplet_seq_fa}
+
+                rm -r {clusters_dir}{wildcards.triplet}/tmpclu_{wildcards.triplet}
+                """

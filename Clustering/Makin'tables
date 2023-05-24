@@ -1,0 +1,437 @@
+### script_clusters_interest_table.sh
+# triplet   cluster_of_interest number_members  roles   size
+
+#!/bin/bash
+#SBATCH -J clusters_interest_table
+#SBATCH --partition=normal
+#SBATCH -t 5:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=10G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/logs/clusters_interest_table.out
+#SBATCH -e /beegfs/data/aportal/horizon/logs/clusters_interest_table.error
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+
+echo -e "triplet\tcluster_of_interest\tnumber_members\troles\tsize" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt
+#On crée une boucle qui va parcourir la liste de noms et appliquer les commandes précédentes à chaque fichier :
+for i in $triplets_list
+do
+    cat -n /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles.tsv > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv
+    n_lines=$(wc -l < /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv)
+    for l in $(seq 1 $n_lines)
+    do
+        echo $i > tmp_file.txt
+        awk -v num=$l '$1==num {print $3}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv >> tmp_file.txt
+        awk -v num=$l '$1==num {print $2}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv >> tmp_file.txt
+        awk -v num=$l '$1==num {print $4}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv >> tmp_file.txt
+        #cluster_of_interest=$(awk -v num=$l '$1==num {print $3}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv)
+        #number_members_cluster=$(wc -l < /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/members_$i\/members_$cluster_of_interest\.txt)
+        #echo $number_members_cluster >> tmp_file.txt
+        paste -sd '\t'  tmp_file.txt >> clusters_interest_table.txt
+    done
+    rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/clusters_interest_$i\_roles_num.tsv
+done
+rm tmp_file.txt
+
+# number of clusters_of_interest in each triplet
+cut -f1 /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt |sort|uniq -c|awk '{{$1=$1}}1'|sort > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_number.txt # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant et trie
+ 
+# R : table stats clusters of interest // roles
+clusters_interest_table <- read.table("clusters_interest_table.txt", header = TRUE, sep = "")
+
+library(plyr)
+library(dplyr) # ça permet d'utiliser ça = %>% 
+clusters_stats <- clusters_interest_table %>% # tu appelles ton tableau
+  group_by(roles) %>% # ça groupe ensembles toutes les valeurs qu'on retrouver plusieurs fois dans cette colonne
+  summarize(nb_clusters = plyr::count(roles)$freq, # crée une colonne nb_all qui compte combien de valeurs ont été groupées à l'étape au dessus
+            min_size = min(number_members),
+            max_size = max(number_members),
+            mean_size = mean(number_members), # calcule la moyenne de la colonne number_members pour le regroupement réalisé
+            Q50 = unname(quantile(number_members,na.rm = T,probs = c(0.5))),
+            roles=unique(roles)) # ça ça lui dit de garder chaque valeur différente de roles
+
+write.table(clusters_stats, file = "clusters_interest_stats.txt", append = FALSE, sep = "\t", dec = ".",
+            row.names = FALSE, col.names = TRUE)
+
+clusters_stats_pertriplet <- clusters_interest_table %>% # tu appelles ton tableau
+  group_by(triplet,roles) %>% # ça groupe ensembles toutes les valeurs qu'on retrouver plusieurs fois dans ces colonne
+  summarize(nb_clusters = plyr::count(roles)$freq, # crée une colonne nb_all qui compte combien de valeurs ont été groupées à l'étape au dessus
+            min_size = min(number_members),
+            max_size = max(number_members),
+            mean_size = mean(number_members), # calcule la moyenne de la colonne number_members pour le regroupement réalisé
+            Q50 = unname(quantile(number_members,na.rm = T,probs = c(0.5))),
+            roles=unique(roles)) # ça ça lui dit de garder chaque valeur différente de roles
+
+write.table(clusters_stats_pertriplet, file = "clusters_interest_stats_per_triplet.txt", append = FALSE, sep = "\t", dec = ".",
+            row.names = FALSE, col.names = TRUE)
+
+
+
+####TRAITEMENT MSA
+
+### script_table_msa_values
+#prend toutes tables msa values par CI et les concatène
+#triplet        clade   triplet_type    cluster_of_interest     seq1    seq2    dS      dN      dvg     length
+
+#!/bin/bash
+#SBATCH -J msa_stats
+#SBATCH --partition=normal
+#SBATCH -t 20:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=30G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/scripts/Clustering/msa_stats.out
+#SBATCH -e /beegfs/data/aportal/horizon/scripts/Clustering/msa_stats.error
+
+echo -e "triplet\tclade\ttriplet_type\tcluster_of_interest\ti\tj\tdS\tdN\tdist\talign_length" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_msa_stats.txt
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                clade=$(awk -v triplet=$i ' $1==triplet {print $2}' /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt)
+                triplet_type=$(awk -v triplet=$i '$1==triplet {print $3}' /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt)
+                grep -v 'align_length$' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/msa_$i\/align_scores_table_seq_$j\.txt > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1_$j
+                sed "s/$/\t$i/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1_$j > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp2_$j
+                sed "s/$/\t$clade/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp2_$j > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp3_$j
+                sed "s/$/\t$triplet_type/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp3_$j > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp4_$j
+                sed "s/$/\t$j/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp4_$j > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp5_$j
+                awk '{print $7, $8, $9, $10, $1, $2, $3, $4, $5, $6 ;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp5_$j > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp6_$j
+                cat /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp6_$j >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_msa_stats.txt
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1_$j /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp2_$j /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp3_$j /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp4_$j /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp5_$j /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp6_$j
+        done
+done
+
+#get rid of spaces
+sed -e 's/ /\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_msa_stats.txt > tmp && mv tmp /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_msa_stats.txt
+
+
+#traitement final msa sur R
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table_msa_stats.txt /Users/audrey/Documents/
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt /Users/audrey/Documents/
+
+
+
+
+
+
+
+
+
+
+###Assignation fonctionnelle Pannzer2
+##create file with all sequences 
+
+#!/bin/bash
+#SBATCH -J all_prots
+#SBATCH --partition=normal
+#SBATCH -t 20:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=30G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/scripts/Clustering/all_prots.out
+#SBATCH -e /beegfs/data/aportal/horizon/scripts/Clustering/all_prots.error
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list.txt`
+touch /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_proteins.txt
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                sed "s/>.*/&_CI_$j\_T_$i/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/prot_$i\/prot_$j\.fa > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/prot_$i\/prot_$j\_headers.fa
+                cat /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/prot_$i\/prot_$j\_headers.fa >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_prots.txt
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/prot_$i\/prot_$j\_headers.fa
+        done
+done
+##ETAPE EXTERNE : DONNER TOUT FICHIER A PANNZER2 : WEB
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_prots.txt /Users/audrey/Documents/
+#pannzering
+scp /Users/audrey/Documents/clusters_interest_all_functions.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/ 
+##transfo espaces en underscores
+sed -i 's/ /_/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions.txt
+##file recup only fonctions par CI
+awk '$2=="DE" {print $0}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions.txt > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE.txt
+
+sed -i 's/_CI_/\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE.txt
+sed -i 's/_T_/\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE.txt
+
+awk '{print $3, $2, $1, $4, $5, $6, $7, $8 ;}'  /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE_org.txt
+
+##recuperation infos anno.out (DE) ds table
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+echo -e "triplet\tcluster_of_interest\tqpid\ttype\tscore\tppv\tid\tdesc" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table_withoutNA.txt
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+            awk -v CI=$j '$2==CI {print $0}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_functions_DE_org.txt > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp.txt
+            awk 'max=="" || $6 > max {max=$6} END{ print $1, $2, $3, $4, $5, $6, $7, $8 ;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table_withoutNA.txt #prendre le $6 (ppv) le plus grand par cluster d'intérêt
+        done
+done
+rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp.txt
+
+#mettre des NA là où pas d'assignation
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+echo -e "triplet\tcluster_of_interest\tqpid\ttype\tscore\tppv\tid\tdesc" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                echo $i > tmp.txt
+                echo $j >> tmp.txt
+                awk -v triplet=$i -v CI=$j '$1==triplet && $2==CI {print $3, $4, $5, $6, $7, $8 ;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table_withoutNA.txt >> tmp.txt
+                paste -sd ' '  tmp.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt
+        done
+done
+rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp.txt
+
+sed -i 's/_training$/_training NA NA NA NA NA NA/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt
+sed -i 's/ /\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt
+
+rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table_withoutNA.txt
+
+awk '{print $1, $2, $3, $4, $5, $6, $7, $8 ;}'  /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table_done.txt
+
+
+
+
+###RECUP INFO TAXO PAR CI
+
+#create file containing only CI representative sequences 
+
+#!/bin/bash
+#SBATCH -J all_CI_repres
+#SBATCH --partition=normal
+#SBATCH -t 20:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=30G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/scripts/Clustering/all_CI_repres.out
+#SBATCH -e /beegfs/data/aportal/horizon/scripts/Clustering/all_CI_repres.error
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                awk '/^>/{if(N)exit;++N;} {print;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\.fa > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa
+                sed "s/>.*/&_T_$i/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa
+                cat /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres.fa
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa
+        done
+done
+
+
+#!/bin/bash
+#SBATCH -J taxo_CI_repres
+#SBATCH --partition=bigmem
+#SBATCH -t 80:00:00
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=300G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/scripts/Clustering/taxo_CI_repres.out
+#SBATCH -e /beegfs/data/aportal/horizon/scripts/Clustering/taxo_CI_repres.error
+
+mkdir -p /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres_DB/
+/beegfs/project/horizon/bin/miniconda3/bin/mmseqs createdb /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres.fa /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres_DB/clusters_interest_all_CI_repres_DB
+mkdir -p /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxo/
+/beegfs/project/horizon/bin/miniconda3/bin/mmseqs taxonomy --tax-lineage 1 /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres_DB/clusters_interest_all_CI_repres_DB  /beegfs/data/bguinet/these/NR_db /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxo/clusters_interest_taxo /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxo/clusters_interest_taxo_tmp --min-length 30
+/beegfs/project/horizon/bin/miniconda3/bin/mmseqs createtsv /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_all_CI_repres_DB/clusters_interest_all_CI_repres_DB /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxo/clusters_interest_taxo /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxo/clusters_interest_taxo.tsv
+
+
+
+#Obtenir table taxo
+#triplet        CI repres       taxID   rankname        scientific_name
+
+sed 's/ /_/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_safe.tsv > tmp_tax1 #rename
+sed 's/_T_/\t/g' tmp_tax1 > tmp_tax2
+awk '{print $2, $1, $3, $4, $5, $6, $7, $8, $9, $10 ;}'  tmp_tax2 > tmp_tax3
+sed 's/ /\t/g' tmp_tax3 > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy.tsv
+rm tmp_tax1 tmp_tax2 tmp_tax3
+
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+echo -e "triplet\tcluster_of_interest\tNCBI_taxID\trank\tscientific_name" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_sorted.tsv 
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                echo $i > tmp.txt
+                echo $j >> tmp.txt
+                awk -v triplet=$i -v CI=$j '$1==triplet && $2==CI {print $3;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy.tsv  >> tmp.txt
+                paste -sd ' '  tmp.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_sorted.tsv 
+        done
+done
+rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp.txt
+
+sed -i 's/ /\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_sorted.tsv
+sed -i 's/_training$/_training\tNA/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_sorted.tsv
+
+#traitement taxo ds R
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_taxonomy_sorted.tsv /Users/audrey/Documents/
+
+
+
+
+
+>belvosia_woodley10_14411.g5188.t1_lepido_training
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ATGATG------TATTTTTTC---CAAAATGGGGCCGGTCAGGCAGTTACTGTGAAT---------GGTGTTCGCTATCGTGAGATAATA---ACGAACTTTTTATGGCTCGAATTGGAA------GATATGGAT------GTGGACGTG------------GATATGTGGTTTCAACGGGAGAACCACGGTGCCCCTTGCCACACAGCTAACGAAACAATGGCTCTTTTGCGCGACAAATTCAATGGCCGTGTTAACTCACGT------------GGTGGCGATGTCAATTGGCCG------------------CCAAGATCATGTGATTCGACACCGTTGGACTTCTTTCTTTGGGGTTTATTTGAAAGA---------AAAGGTGTA---------------------CGT---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------CGA------------------------------------------------------------TAA
+>belvosia_woodley10_29903.g10986.t1_lepido_training
+------------------------------------------------------------------------------------ATGGAAAGATGCAGAATCGAGCAACGCATTAAAGTTATTCAGGCTTATTATGGATATGGGCGTTCAAATCAAAATGCATATCGTGAACTT---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------CGTGATTTTTCATTTCACCTCAGTGGATTCGTCCATAAGCAGAATTGTCGCATTTGGGTGAAT------GAT------AATTCAAGAGTGATTGTCGAAAAACCAATGCAG---CCACAAAAAGTGACTGTTTGGTGCGGTTTATGGGCTGGCGGCATCATCGGGCCG------TATTTTTTC---CAAAATGAGGCCGGTCAGGCAGTTACTCTGAAT---------GGTGTTCGCTATCGTGAGATGATA---ACGAACCTTTTATGGCCCGAATTGGAA------GATATGGAT------GTGGNT---------------GGTTTCAACAGG---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ACTGTG------------------CCACTTGCCACACAGCTAACGAAA------------------------CAA------------TGA
+
+
+>epiperola_vaferella_716600.g95985.t1_lepido_training
+---ATGAGAAAGTTCCGTGAAATTTTTGGGAGAAACAACGTGCCAACAAAACACACTATTTATCGTGTAGTGAATGATTTCGAAAAAAGATGGTCTGTAGCTGATAGGCCCAAGCATGGACCACAACGTACTGCAAGATCGGCTGAAAACATTACTGCTGCTCAAGAA------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+>epiperola_vaferella_190790.g30130.t1_lepido_training
+---ATGAGAAACTTGCGTGAAATTTTTGGGAGAAAAAACGTGCCAACAAAACGCACTATTTATCGTGTAGTGAATGATTTCGAAGACAGAGGGTCTGTAGCTGATAGTTCCAAGCATGGACCACAATGTACTGCAAGATCGGCTGAAAACATTACTGCTGCTCAAGAAAGTGTTCAAAACAATCCATCAACCTCAATTCGACGCCGTGCTCAGGAGCTTGATCTTCAAAGAACAACTTTGGCTACAATTTTGCACAAGGATTTGCATTTGTTTCCATTTAAGATTCAGTTGACACAAGAGTTTCTTCCACAAGACCATTTACGCCGC---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+When the alignment does not contain enough information (i.e. close to saturation), the Ka and Ks values are forced to 10 (more exactly to 9.999999).
+
+Negative values indicate that Ka and Ks can not be computed.
+
+scp aportal@pbil-gates.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt  /Users/audrey/Documents/
+
+
+
+#récup taxo non assignée
+scp /Users/audrey/Documents/list_no_tax_ID.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/
+
+awk '{print $1}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/list_no_tax_ID.txt | uniq > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp_list
+triplets_list=`sed -e '1d' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp_list`
+for i in $triplets_list #per triplet in file
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {print $2}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/list_no_tax_ID.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+                awk '/^>/{if(N)exit;++N;} {print;}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\.fa > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa
+                sed "s/>.*/&_T_$i/" /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa
+                cat /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_CI_no_tax_ID.fa
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_no_headers.fa
+                rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/$i\/seq_$i\/seq_$j\_headers.fa
+        done
+done    
+scp aportal@pbil-gates.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_CI_no_tax_ID.fa  /Users/audrey/Documents/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###TABLE FINALE TAXO FONCTION
+
+### script_table_assign_function_taxo
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list.txt`
+echo -e "triplet\tcluster_of_interest\tfunction\ttaxonomy" > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/table_assign_function_taxo.txt
+for i in $triplets_list #per triplet
+do        
+        clusters_of_interest_triplet=$(awk -v triplet=$i 'triplet==$1 {{print $2}}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_table.txt)
+        for j in $clusters_of_interest_triplet #per cluster of interest
+        do
+            echo $i > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1
+            echo $j >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1
+            awk -v CI=$j '$2==CI {print $7}' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/clusters_interest_function_table.txt >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1
+            #recup assign taxo
+            paste -sd ' '  /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1 >> /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/table_assign_function_taxo.txt
+        done
+done
+rm /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/tmp1
+sed -i 's/ /\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/table_assign_function_taxo.txt
+
+
+
+
+
+#dag snakemake
+snakemake --forceall  --rulegraph | dot -Tpdf > dag.pdf
+
+
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+for i in $triplets_list #per triplet
+do      
+        sed -i 's/"//g' /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv
+done
+
+/beegfs/data/aportal/horizon/Clustering/clusters/triplet_1/cluster_triplet_1_roles.tsv
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+echo -e "triplet\tnb_clusters\ttaille_moyenne_clusters\tnb_roles_H\tnb_roles_P\tnb_roles_P1\tnb_roles_H1\tnb_roles_P2\tnb_roles_H2\tnb_roles_HP1\tnb_roles_PH1\tnb_roles_HP2\tnb_roles_PH2\tnb_roles_HP1P2\tnb_roles_PH1H2\tnb_roles_P1P2\tnb_roles_H1H2" > /beegfs/data/aportal/horizon/Clustering/clusters/clusters_stats.txt
+for i in $triplets_list #per triplet
+do        
+        echo $i > /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        wc -l < /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        sum=$(awk '{print $1}' /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv | paste -sd+ | bc); echo "$sum / $(cat /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv | wc -l)" | bc -l >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')P$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')P1$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H1$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')P2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')HP1$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H1P$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')HP2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H2P$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')HP1P2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H1H2P$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')P1P2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        grep -c "$(printf '\t')H1H2$" /beegfs/data/aportal/horizon/Clustering/clusters/$i\/cluster_$i\_roles.tsv >> /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+        paste -sd ' '  /beegfs/data/aportal/horizon/Clustering/clusters/tmp1 >> /beegfs/data/aportal/horizon/Clustering/clusters/clusters_stats.txt
+done   
+
+"(^| )webservertalk( |$)"
+rm /beegfs/data/aportal/horizon/Clustering/clusters/tmp1
+sed -i 's/ /\t/g' /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/table_assign_function_taxo.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt
+
+triplet_id      clade   triplet_type    H_P     P1_H1   P2_H2
+triplet_1       4       PHH     casinaria_macerata      euclea_bidiscalis       acharia_hyperoche
+triplet_10      33      PHH     alabagrus_almasolisae   trichaea_pilicornis     ceratocilia_sixolalis
+triplet_101     58      PHH     argyrochaetona_cubanadhj02      mimophobetron_pyropsalis        ategumia_lotanalisdhj09
+triplet_102     57      PHH     argyrochaetona_cubanadhj02      pilocrocis_purpurascens herpetogramma_janzen04
+triplet_103     57      PHH     argyrochaetona_cubanadhj02      pilocrocis_purpurascens herpetogramma_janzen07
+triplet_104     19      HPP     ategumia_lotanalisdhj09 atacta_brasiliensisdhj01        argyrochaetona_cubanadhj02
+triplet_105     19      HPP     mocis_latipes   atacta_brasiliensisdhj01        argyrochaetona_cubanadhj02
+triplet_106     19      HPP     pilocrocis_purpurascens atacta_brasiliensisdhj01        argyrochaetona_cubanadhj02
+triplet_107     17      PHH     argyrophylax_albincisadhj04     geljanzen01_janzen369   diaphania_dapkey01
+triplet_108     21      HPP     diaphania_dapkey01      argyrophylax_wood05     argyrophylax_albincisadhj04
+triplet_109     30      PHH     houghia_pallida conga_chydaea   aroma_aroma
+triplet_11      63      HPP     ceratocilia_sixolalis   alabagrus_combos        alabagrus_almasolisae

@@ -1,0 +1,143 @@
+###ASSIGN TAXO CLUSTERS DINTERET TRIPLET 190 seq id 80,90,95
+95  2   meteorus_janzen04_184.g2072.t1_lepido_training  HP2 bact (reverse transcriptase)
+95  3   meteorus_janzen23_10401.g18877.t1_nasonia_training  HP1P2 bact (rev transcript)
+95  3   meteorus_janzen23_11950.g9334.t1_fly_training   HP1 bact (RNA pol)
+95  4   meteorus_janzen23_765.g2748.t1_lepido_training  HP1 insect (rev transcriptase)
+95  5   meteorus_janzen04_5009.g10261.t1_nasonia_training   HP2 insecte(retrovir)
+80  6   meteorus_janzen04_5009.g10261.t1_nasonia_training   HP1P2 insecte(retrovir)
+90  2   ctenoplusia_oxygramma_12734.g2331.t1_nasonia_training   HP1 insecte (retrovir?)
+90  2   ctenoplusia_oxygramma_52918.g12292.t1_lepido_training   HP1 insecte (helitron-like)
+90  2   meteorus_janzen04_2310.g2088.t1_fly_training    HP2 bact (translation initiation factor)
+90  2   meteorus_janzen23_1129.g3928.t1_lepido_training HP1 insect (atp dpdt helicase?)
+80  3   meteorus_janzen23_1129.g3928.t1_lepido_training HP1 insect (atp dpdt helicase?)
+90  2   meteorus_janzen23_4287.g3556.t1_fly_training    HP1 bact (phosphenolpyruvatesynthase)
+90  2   meteorus_janzen23_5746.g4727.t1_fly_training    HP1 bact 
+90  3   ctenoplusia_oxygramma_31156.g5522.t1_nasonia_training   HP1 insecte ()
+80  10  meteorus_janzen04_7.g23.t1_fly_training HP1P2
+80  12  meteorus_janzen23_6074.g5031.t1_fly_training    HP1P2
+80  2   ctenoplusia_oxygramma_129099.g24259.t1_lepido_training  HP1
+80  2   ctenoplusia_oxygramma_85863.g18386.t1_lepido_training   HP1
+80  2   meteorus_janzen04_2760.g9149.t1_lepido_training HP2
+80  2   meteorus_janzen04_4931.g4087.t1_fly_training    HP2
+80  2   meteorus_janzen04_754.g4232.t1_lepido_training  HP2
+80  2   meteorus_janzen04_7963.g6594.t1_fly_training    HP2
+80  2   meteorus_janzen23_1055.g3578.t1_lepido_training HP1
+80  2   meteorus_janzen23_12811.g22795.t1_nasonia_training  HP1
+80  2   meteorus_janzen23_12811.g9973.t1_fly_training   HP1
+80  2   meteorus_janzen23_12811.g9975.t1_fly_training   HP1
+80  2   meteorus_janzen23_13251.g10328.t1_fly_training  HP1
+80  2   meteorus_janzen23_13251.g31837.t1_lepido_training   HP1
+80  2   meteorus_janzen23_2434.g2101.t1_fly_training    HP1
+80  2   meteorus_janzen23_6810.g5510.t1_fly_training    HP1
+80  2   meteorus_janzen23_7437.g5993.t1_fly_training    HP1
+80  2   meteorus_janzen23_7437.g6003.t1_fly_training    HP1
+80  2   meteorus_janzen23_873.g3031.t1_lepido_training  HP1
+80  3   ctenoplusia_oxygramma_34930.g3425.t1_fly_training   HP1P2
+80  3   meteorus_janzen04_679.g948.t1_fly_training      HP1P2
+80  3   meteorus_janzen23_1467.g1327.t1_fly_training    HP1P2
+80  3   meteorus_janzen23_4287.g3552.t1_fly_training    HP1
+80  3   meteorus_janzen23_4583.g3745.t1_fly_training    HP1P2
+80  3   meteorus_janzen23_6810.g13374.t1_nasonia_training   HP1
+80  3   meteorus_janzen23_7561.g6095.t1_fly_training    HP1P2
+80  5   meteorus_janzen04_4144.g8739.t1_nasonia_training    HP1P2
+80  6   meteorus_janzen04_5009.g10261.t1_nasonia_training   HP1P2
+80  8   ctenoplusia_oxygramma_65877.g6503.t1_fly_training   HP1P2
+
+
+
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_184.g2072.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_10401.g18877.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_11950.g9334.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_765.g2748.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_5009.g10261.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_12734.g2331.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_52918.g12292.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_2310.g2088.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_1129.g3928.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_4287.g3556.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_5746.g4727.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_31156.g5522.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/
+
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_34930.g3425.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_65877.g6503.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_85863.g18386.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_ctenoplusia_oxygramma_129099.g24259.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_7.g23.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_679.g948.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_754.g4232.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_2760.g9149.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_4144.g8739.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_4931.g4087.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen04_7963.g6594.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_873.g3031.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_1055.g3578.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_1467.g1327.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_2434.g2101.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_4287.g3552.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_4583.g3745.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_6074.g5031.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_6810.g5510.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_6810.g13374.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_7437.g5993.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_7437.g6003.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_7561.g6095.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_12811.g9973.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_12811.g9975.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_12811.g22795.t1_nasonia_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_13251.g10328.t1_fly_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+scp /Users/audrey/Documents/test_R/members_meteorus_janzen23_13251.g31837.t1_lepido_training.txt aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters/triplet_190/
+
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen04_184.g2072.t1_lepido_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_184.g2072.t1_lepido_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_10401.g18877.t1_nasonia_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_10401.g18877.t1_nasonia_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_11950.g9334.t1_fly_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_11950.g9334.t1_fly_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_765.g2748.t1_lepido_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_765.g2748.t1_lepido_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen04_5009.g10261.t1_nasonia_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_5009.g10261.t1_nasonia_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_ctenoplusia_oxygramma_12734.g2331.t1_nasonia_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_12734.g2331.t1_nasonia_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_ctenoplusia_oxygramma_52918.g12292.t1_lepido_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_52918.g12292.t1_lepido_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen04_2310.g2088.t1_fly_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_2310.g2088.t1_fly_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_1129.g3928.t1_lepido_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_1129.g3928.t1_lepido_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_4287.g3556.t1_fly_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_4287.g3556.t1_fly_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_meteorus_janzen23_5746.g4727.t1_fly_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_5746.g4727.t1_fly_training.fa
+/beegfs/project/horizon/bin/miniconda3/bin/seqkit grep -n -f /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/members_ctenoplusia_oxygramma_31156.g5522.t1_nasonia_training.txt /beegfs/data/aportal/horizon/Clustering/clusters/cluster_triplet_190_seq.fa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' > /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_31156.g5522.t1_nasonia_training.fa
+
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_184.g2072.t1_lepido_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_10401.g18877.t1_nasonia_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_11950.g9334.t1_fly_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_765.g2748.t1_lepido_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_5009.g10261.t1_nasonia_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_12734.g2331.t1_nasonia_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_52918.g12292.t1_lepido_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen04_2310.g2088.t1_fly_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_1129.g3928.t1_lepido_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_4287.g3556.t1_fly_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_meteorus_janzen23_5746.g4727.t1_fly_training.fa /Users/audrey/Documents/test_R/ 
+scp aportal@pbil-deb.univ-lyon1.fr:/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/triplet_190/seq_ctenoplusia_oxygramma_31156.g5522.t1_nasonia_training.fa /Users/audrey/Documents/test_R/ 
+
+
+
+#belvosia_woodley10
+#bungalotis_erythus
+#calolydella_erasmocoronadoi
+#calolydella_timjamesi
+#coenipeta_phasis
+#cogia_eluina
+#condica_funerea
+#condica_sutordhj01
+#cynea_burns05
+#desmia_benealisdhj03
+#desmia_ploralisdhj02
+#genea_wood01
+#genea_wood03dhj01
+#glyptapanteles_donquickei
+#lixophaga_wood06
+#lixophaga_wood09
+#manduca_albiplaga
+#mimophobetron_pyropsalis
+#mocis_latipes
+#parides_iphidamas
+#trichaea_pilicornis
+#triraphis_janzen04
+#zizyphomyia_argutadhj02
+#zygjanzen01_janzen23
+
+

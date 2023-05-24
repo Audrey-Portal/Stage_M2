@@ -1,0 +1,248 @@
+####Dry RUN command :
+#nohup snakemake -j 600 -s snakemake_clusters_interest -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_clusters_interest.out &
+####Unlock command :
+#nohup snakemake -j 200 -s snakemake_clusters_interest --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_clusters_interest.out &
+####Real command :
+#nohup snakemake -j 700 -s snakemake_clusters_interest --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_clusters_interest.out &
+
+import re
+import os
+
+#paths
+bin_dir="/beegfs/project/horizon/bin/miniconda3/bin/"   #bin du projet horizon où se trouvent les programmes
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Clustering/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/Clustering/clusters_of_interest/"   #là où vont les logs de chaque script
+triplets_dir="/beegfs/data/aportal/horizon/Clustering/triplets/"   #où se trouvent les séquences codantes des espèces par triplets
+clusters_dir="/beegfs/data/aportal/horizon/Clustering/clusters/" #où se trouvent les résultats des clusters
+clusters_interest_dir="/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/" #où se trouvent les résultats des clusters d'intérêt
+
+#triplets_list
+triplets_file = open('/beegfs/data/aportal/horizon/lists/triplets_list.txt', 'r')
+list_triplets = triplets_file.read().split('\n') 
+list_triplets = list_triplets[:-1] 
+
+rule all:
+        input:
+                expand(clusters_dir+"{triplet}/cluster_{triplet}_repres.tsv", triplet = list_triplets), #rule recup_cluster_names
+                expand(clusters_dir+"{triplet}/cluster_{triplet}_roles.tsv", triplet = list_triplets), #rule recup_cluster_roles
+                expand(clusters_dir+"{triplet}/cluster_{triplet}_roles_table.txt", triplet = list_triplets), #rule recup_cluster_roles
+                expand(clusters_interest_dir+"{triplet}/clusters_interest_{triplet}_roles.tsv", triplet = list_triplets), #rule recup_clusters_of_interest
+                expand(logs_dir+"members/{triplet}_members_of_interest_done", triplet = list_triplets) #rule recup_cluster_interest_members
+                
+
+localrules :
+        recup_cluster_names,
+        recup_clusters_of_interest
+
+
+rule recup_cluster_names: ### Récup noms des clusters > 1 (sequence de référence de chaque cluster + nombre d'éléments)
+        input:
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv"
+        output:
+                cluster_repres=clusters_dir+"{triplet}/cluster_{triplet}_repres.tsv"
+        shell:
+                """
+                cut -f1 {input.cluster_tsv} |sort|uniq -c|awk '{{$1=$1}}1'|sort|awk '$1 != "1"' > {output.cluster_repres} # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant et trie, retire lignes dont $1 = 1 : on a la liste des clusters de plus de 1
+                """
+
+
+rule recup_cluster_roles:
+        params:
+                name="cluster_roles_{triplet}",
+                out=logs_dir+"cluster_roles_{triplet}.out",
+                err=logs_dir+"cluster_roles_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="10:00:00",
+                mem="20G"
+        input:
+                triplets_content="/beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt",
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv",
+                cluster_repres=clusters_dir+"{triplet}/cluster_{triplet}_repres.tsv"
+        output:
+                cluster_n_name_role=clusters_dir+"{triplet}/cluster_{triplet}_roles.tsv",
+                cluster_roles_table=clusters_dir+"{triplet}/cluster_{triplet}_roles_table.txt"
+        shell:
+                """
+                /beegfs/data/soft/R-4.0.5/bin/Rscript {scripts_dir}script_recup_cluster_roles.R --input_ct {input.triplets_content} --input_tsv {input.cluster_tsv} --input_rpz {input.cluster_repres} --output_n_nm_r {output.cluster_n_name_role} --output_rtbl {output.cluster_roles_table}
+                """
+
+
+rule recup_clusters_of_interest: ### Récup nbr membres, noms, rôles des clusters d'intérêt
+        input:
+                cluster_n_name_role=clusters_dir+"{triplet}/cluster_{triplet}_roles.tsv"
+        output:
+                cluster_interest_n_name_role=clusters_interest_dir+"{triplet}/clusters_interest_{triplet}_roles.tsv"
+        shell:
+                """
+                sed 's/"//g' {input.cluster_n_name_role} > {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_roles_tmp.tsv  #retire guillemets impromptus
+                awk '/\HP1P2/ || /\HP1/ || /\HP2/ || /\H1H2P/ || /\H1P/ || /\H2P/ {{print}}' {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_roles_tmp.tsv > {output.cluster_interest_n_name_role}
+                rm {clusters_dir}{wildcards.triplet}/cluster_{wildcards.triplet}_roles_tmp.tsv
+                """
+
+
+rule recup_cluster_interest_members:
+        params:
+                name="cluster_members_{triplet}",
+                out=logs_dir+"cluster_members_{triplet}.out",
+                err=logs_dir+"cluster_members_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="10:00:00",
+                mem="20G"
+        input:
+                cluster_interest_n_name_role=clusters_interest_dir+"{triplet}/clusters_interest_{triplet}_roles.tsv",
+                tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv"
+        output:
+                flag=logs_dir+"members/{triplet}_members_of_interest_done"
+        shell:
+                """
+                mkdir -p /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/{wildcards.triplet}/members_{wildcards.triplet}/
+                /beegfs/data/soft/R-4.0.5/bin/Rscript {scripts_dir}script_recup_members_interest.R --input {input.cluster_interest_n_name_role} --tsv {input.tsv}
+                touch {output.flag}
+                """
+
+
+
+
+
+sed -i 's/-/_/g' triplet_143.fa
+
+#Error in read.table(xargs$input, header = FALSE, sep = "") : 
+ # pas de lignes disponibles dans l'entrée
+#Exécution arrêtée
+
+less /beegfs/data/aportal/horizon/Clustering/clusters/triplet_147/cluster_triplet_147_roles_table.txt 
+
+
+
+####script_recup_cluster_roles.R
+#!/usr/bin/env Rscript
+
+library(argparse)
+
+parser <- ArgumentParser(description= 'recup membres clusters of interest')
+
+parser$add_argument('--input_ct', '-ic', help= 'I am the triplets_content file')
+parser$add_argument('--input_tsv', '-it', help= 'I am the cluster_tsv file')
+parser$add_argument('--input_rpz', '-ir', help= 'I am the cluster_repres file')
+parser$add_argument('--output_n_nm_r', '-o', help= 'I am the cluster_n_name_role file')
+parser$add_argument('--output_rtbl', '-ot', help= 'I am the cluster_roles_table file')
+
+xargs<- parser$parse_args()
+
+###TABLEAU TRIPLETS CONTENT
+library(miceadds)
+name <- miceadds::filename_split(xargs$input_tsv, file_sep="_", file_ext=".")
+triplet_nb <- gsub(" ", "",paste("triplet_",name$suffix))
+triplets_id <- read.table(xargs$input_ct, header = TRUE, sep = "")
+triplet_used <- triplets_id[grep(triplet_nb, triplets_id$triplet_id, ignore.case = TRUE), ]
+
+###TABLE CLUSTERS_TSV
+clusters_tsv <- read.table(xargs$input_tsv, header = FALSE, sep = "") #editer pour chaque triplet
+
+###TABLE TAILLE ET NOMS DES CLUSTERS
+clusters = read.table(xargs$input_rpz, header = FALSE, sep = "") #table taille et nom clusters #editer pour chaque triplet 
+
+##Def function to extract cluster members FOR EACH CLUSTER
+extr_members <- function(x,y){ #necess x=nom_repres et y=clusters_tsv
+  cluster_members <- y[grep(x, y$V1, ignore.case = TRUE), ] #subset of cluster members
+  return(cluster_members)
+}
+
+##Def function to extract ecological role OF EACH CLUSTER MEMBER
+extr_roles <- function(x,y){ #sur x=cluster_member, use y=triplet_used
+  #ASSIGN DEPEND DE TYPE TRIPLET
+  if (y$triplet_type=="HPP"){
+    if (grepl(y$H_P,x,ignore.case=TRUE)==TRUE){
+      role <- "H"
+    } else if (grepl(y$P1_H1,x,ignore.case=TRUE)==TRUE){
+      role <-"P1"
+    } else if (grepl(y$P2_H2,x,ignore.case=TRUE)==TRUE){
+      role <-"P2"
+    }
+  } else if(y$triplet_type=="PHH") {
+    if (grepl(y$H_P,x,ignore.case=TRUE)==TRUE){
+      role <- "P"
+    } else if (grepl(y$P1_H1,x,ignore.case=TRUE)==TRUE){
+      role <- "H1"
+    } else if (grepl(y$P2_H2,x,ignore.case=TRUE)==TRUE){
+      role <- "H2"
+    }
+  }
+  return(role)
+}
+
+#NESTED FUNCTION TO ADD ROLES COLUMN TO CLUSTERS TABLE : works on one cluster ; apply to all !
+add_cluster_roles <- function(X,Y,Z){ #X=clusters, Y=clusters_tsv, Z=triplet_used
+  cluster_repres <- X$V2
+  roles_all <- list()
+  for (i in cluster_repres){
+    cluster_members <- extr_members(i,Y)
+    cluster_members <- cluster_members$V2
+    roles1 <- paste(base::sort(unique(sapply(cluster_members,extr_roles,y=Z))), sep = "", collapse = "") #transfo roles en acronyme
+    roles_all <- append(roles_all, roles1)
+  }
+  roles_all <- t(data.frame(t(roles_all)))
+  clusters_n_names_roles <- cbind(clusters,roles_all)
+  return(clusters_n_names_roles)
+}
+
+clusters_n_names_roles <- add_cluster_roles(clusters,clusters_tsv,triplet_used)
+clusters_n_names_roles <- as.data.frame(clusters_n_names_roles)
+clusters_n_names_roles$roles_all <- unlist(clusters_n_names_roles$roles_all) #tableau nbr, noms, roles
+
+write.table(clusters_n_names_roles, file = xargs$output_n_nm_r, append = FALSE, sep = "\t", dec = ".",
+            row.names = FALSE, col.names = FALSE)
+
+##obt table nbr clusters par type de rôle
+library(plyr)
+library(dplyr) # ça permet d'utiliser ça = %>% 
+clusters_table <- clusters_n_names_roles %>% # tu appelles ton tableau
+  group_by(roles_all) %>% # ça groupe ensembles toutes les valeurs qu'on retrouver plusieurs fois dans cette colonne
+  summarize(nb_clusters = plyr::count(roles_all)$freq, # crée une colonne nb_all qui compte combien de valeurs ont été groupées à l'étape au dessus
+            min_size = min(V1),
+            max_size = max(V1),
+            mean_size = mean(V1), # calcule la moyenne de la colonne V1 pour le regroupement réalisé
+            Q25 = unname(quantile(V1,na.rm = T,probs = c(0.25))),
+            Q50 = unname(quantile(V1,na.rm = T,probs = c(0.5))),
+            Q75 = unname(quantile(V1,na.rm = T,probs = c(0.75))),
+            roles_all=unique(roles_all)) # ça ça lui dit de garder chaque valeur différente de roles_all
+
+write.table(clusters_table, file = xargs$output_rtbl, append = FALSE, sep = "\t", dec = ".",
+            row.names = FALSE, col.names = TRUE) #renseigne nbr clusters par type de rôle
+
+
+
+
+####script_recup_members_interest.R
+#!/usr/bin/env Rscript
+
+library(argparse)
+
+parser <- ArgumentParser(description= 'recup membres clusters of interest')
+
+parser$add_argument('--input', '-i', help= 'I am the input file')
+parser$add_argument('--tsv', '-p', help= 'I am the clusters tsv from which members are recuperated and for triplet id assignation')
+
+xargs<- parser$parse_args()
+
+library(miceadds)
+name <- miceadds::filename_split(xargs$tsv, file_sep="_", file_ext=".")
+triplet_nb <- gsub(" ", "",paste("triplet_",name$suffix))
+
+extr_members <- function(x,y){ #necess x=nom_repres et y=clusters_tsv
+  cluster_members <- y[grep(x, y$V1, ignore.case = TRUE), ] #subset of cluster members
+  return(cluster_members)
+}
+
+clusters_tsv <- read.table(xargs$tsv, header = FALSE, sep = "")
+clusters_of_interest <- read.table(xargs$input, header = FALSE, sep = "")
+cluster_interest_repres <- clusters_of_interest$V2
+for (i in cluster_interest_repres){
+  members <- extr_members(i,clusters_tsv)
+  members <- members$V2
+  myfile <- file.path(paste0("/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/",triplet_nb,"/members_",triplet_nb,"/"), paste0("members_", i, ".txt"))
+  write.table(members, file = myfile, sep = "\t", dec=".", row.names = FALSE, col.names = FALSE,
+              quote = FALSE, append = FALSE)
+}

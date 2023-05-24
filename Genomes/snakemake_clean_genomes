@@ -1,0 +1,63 @@
+####Dry RUN command :
+#nohup snakemake -j 200 -s snakemake_clean_genomes -n &> nohup_snakemake_clean_genomes.out &
+####Unlock command :
+#nohup snakemake -j 200 -s snakemake_clean_genomes --unlock &> nohup_snakemake_clean_genomes.out &
+####Real command :
+#nohup snakemake -j 200 -s snakemake_clean_genomes &> nohup_snakemake_clean_genomes.out &
+
+import re
+import os
+
+#paths
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Genomes/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/"   #là où vont les logs de chaque script
+genomes_fna_dir="/beegfs/project/horizon/data/assembly/species/"   #où se trouvent les séquences des génomes complets des espèces (.fna)
+genomes_dir="/beegfs/data/aportal/horizon/Genomes/"   #où se trouvent les séquences propres des espèces (.fa et DB)
+
+#species_list
+species_file = open('/beegfs/data/aportal/horizon/lists/species_list.txt', 'r')
+list_species = species_file.read().split('\n') 
+list_species = list_species[:-1] 
+
+rule all:
+        input:
+                expand(genomes_dir+"{species}.fa", species = list_species) #rule clean_genomes_fa
+
+rule clean_genomes_fa:
+        input:
+                genomes_fna=genomes_fna_dir+"{species}/gnm.fna"
+        output:
+                species_fa=genomes_dir+"{species}.fa"
+        shell:
+                """
+                awk '/^>/ {{ if(NR>1) print "";  printf("%s\\n",$0); next; }} {{ printf("%s",$0);}}  END {{printf("\\n");}}' {input.genomes_fna} > {output.species_fa}
+                """
+
+awk '/^>/ {{ if(NR>1) print "";  printf("%s\\n",$0); next; }} {{ printf("%s",$0);}}  END {{printf("\\n");}}' /beegfs/project/horizon/data/assembly/species/campylocheta_wood03/gnm.fna > /beegfs/data/aportal/horizon/Genomes/campylocheta_wood03.fa
+
+
+###PERMISSION NON ACCORDEE
+#coenipeta_phasis
+#parides_iphidamas
+#trichaea_pilicornis
+#cogia_eluina
+#condica_sutordhj01
+#triraphis_janzen04
+#condica_funerea
+#glyptapanteles_donquickei
+#genea_wood03dhj01
+#manduca_albiplaga
+#zizyphomyia_argutadhj02
+#mimophobetron_pyropsalis
+#belvosia_woodley10
+#lixophaga_wood06
+#lixophaga_wood09
+#genea_wood01
+#calolydella_timjamesi
+#desmia_benealisdhj03
+#calolydella_erasmocoronadoi
+#mocis_latipes
+#zygjanzen01_janzen23
+#desmia_ploralisdhj02
+#bungalotis_erythus
+#cynea_burns05

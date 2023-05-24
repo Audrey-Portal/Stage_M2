@@ -1,0 +1,236 @@
+####Dry RUN command :
+#nohup snakemake -j 200 -s snakemake_augustus_intersect -n  --rerun-incomplete --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_augustus_intersect.out &
+####Unlock command :
+#nohup snakemake -j 200 -s snakemake_augustus_intersect --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_augustus_intersect.out &
+####Real command :
+#nohup snakemake -j 200 -s snakemake_augustus_intersect --rerun-incomplete --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_augustus_intersect.out &
+
+import re
+import os
+
+#paths
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Genes_prediction/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/Genes_prediction/Augustus/"   #là où vont les logs de chaque script
+genomes_dir= "/beegfs/data/aportal/horizon/Genomes/"   #où se trouvent les séquences propres des espèces (.fa et DB)
+augustus_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/"   #où se trouvent les résultats des prédictions augustus
+intersect_augustus_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/"   #où se trouvent les intersections entre positions des predictionsaugustus
+codingseq_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/"   #où se trouvent les séquences codantes des espèces
+
+#species_list
+species_file = open('/beegfs/data/aportal/horizon/lists/species_list_full.txt', 'r')
+# read the content and split when newline 
+list_species = species_file.read().split('\n') 
+list_species = list_species[:-1] 
+
+#training_list
+list_aug_training=["lepido","nasonia","fly"]
+
+rule all:
+        input:
+                expand(augustus_dir+"{species}/augustus_{species}_{training}.gff", species = list_species, training = list_aug_training), #rule augustus_predict
+                expand(augustus_dir+"{species}/augustus_{species}_{training}.fa", species = list_species, training = list_aug_training), #rule augustus_predict
+                expand(augustus_dir+"{species}/augustus_{species}_{training}_onlygenes.gff", species = list_species, training = list_aug_training), #rule onlygenes_training
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_overlap.gff", species = list_species), #rule intersect_step1
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_nooverlap.gff", species = list_species), #rule intersect_step1
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_nasonia_lepido_nooverlap.gff", species = list_species), #rule intersect_step1
+                expand(intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia.gff", species = list_species), #rule choose_predict1
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_overlap.gff", species = list_species), #rule intersect_step2
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_nooverlap.gff", species = list_species), #rule intersect_step2
+                expand(intersect_augustus_dir+"{species}/intersect_{species}_fly_lepido_nasonia_nooverlap.gff", species = list_species), #rule intersect_step2
+                expand(intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia_fly.gff", species = list_species), #rule choose_predict2
+                expand(intersect_augustus_dir+"{species}/predict_{species}_{training}.fa", species = list_species, training = list_aug_training), #rule get_codingseq_trainings
+                expand(codingseq_dir+"codingseq_{species}.fa", species = list_species) #rule get_codingseq
+
+
+localrules: 
+        onlygenes_training,
+        choose_predict1,
+        choose_predict2,
+        get_codingseq
+
+
+rule augustus_predict : #returns augustus gene predictions with 3 types of training
+        params:
+                name="augustus_{species}_{training}",
+                out=logs_dir+"augustus_{species}_{training}.out",
+                err=logs_dir+"augustus_{species}_{training}.error",
+                partition="normal",
+                threads="8",
+                time="35:00:00",
+                mem="20G"
+        input:
+                species_fa=genomes_dir+"{species}.fa"
+        output:
+                predict_gff=augustus_dir+"{species}/augustus_{species}_{training}.gff",
+                predict_codingseq_fa=augustus_dir+"{species}/augustus_{species}_{training}.fa"
+        wildcard_constraints:
+                training="[a-z]+"  # only letters allowed
+        shell:
+                """
+                bash {scripts_dir}script_augustus_predict_{wildcards.training}.sh {input.species_fa} {output.predict_gff} {augustus_dir}{species}/augustus_{wildcards.species}_{wildcards.training}.codingseq {output.predict_codingseq_fa}
+                """
+
+#/beegfs/data/soft/singularity-3.7.2/bin/singularity exec --bind /beegfs/:/beegfs/ /beegfs/project/horizon/bin/augustus_3.4.0--pl5321hd8b735c_3.sif  augustus --species=fly --codingseq=on $1 > $2
+#/beegfs/data/soft/singularity-3.7.2/bin/singularity exec --bind /beegfs/:/beegfs/ /beegfs/project/horizon/bin/augustus_3.4.0--pl5321hd8b735c_3.sif getAnnoFasta.pl --seqfile=$1 $2
+#awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' $3 > $4
+
+
+rule onlygenes_training: #creates a file.gff with gene positions only and adds a column with the training
+        input:
+                augustus_predict=augustus_dir+"{species}/augustus_{species}_{training}.gff"
+        output:
+                augustus_onlygenes=augustus_dir+"{species}/augustus_{species}_{training}_onlygenes.gff"
+        wildcard_constraints:
+                training="[a-z]+"  # only letters allowed
+        shell:
+                """
+                grep -v "#" {input.augustus_predict} > {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_clean.gff   #retire commentaires du augustus.gff
+                awk  '$3 ~ "gene" {{print}}' {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_clean.gff > {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_onlygenes_notrain.gff   #récup seulement gènes
+                awk 'BEGIN{{ FS = OFS = "\t" }} {{ print $0, (NR==1? "*{wildcards.training}" : "*{wildcards.training}") }}' {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_onlygenes_notrain.gff > {output.augustus_onlygenes}   #annotation training
+                rm {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_clean.gff   #suppr clean tmp
+                rm {augustus_dir}{wildcards.species}/augustus_{wildcards.species}_{wildcards.training}_onlygenes_notrain.gff   #suppr onlygenes without training
+                """
+
+
+rule intersect_step1:
+        params:
+                name="intersect1_{species}",
+                out=logs_dir+"intersect1_{species}.out",
+                err=logs_dir+"intersect1_{species}.error",
+                partition="normal",
+                threads="8",
+                time="05:00:00",
+                mem="20G"
+        input:
+                augustus_onlygenes_lepido=augustus_dir+"{species}/augustus_{species}_lepido_onlygenes.gff",
+                augustus_onlygenes_nasonia=augustus_dir+"{species}/augustus_{species}_nasonia_onlygenes.gff"
+        output:
+                overlap_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_overlap.gff",
+                nooverlap_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_nooverlap.gff",
+                nooverlap_nasonia_lepido=intersect_augustus_dir+"{species}/intersect_{species}_nasonia_lepido_nooverlap.gff"
+        shell:
+                """
+                #lepido intersect nasonia
+                bedtools intersect -a {input.augustus_onlygenes_lepido} -b {input.augustus_onlygenes_nasonia} -wo > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_overlap_col9notsep.gff
+                bedtools intersect -a {input.augustus_onlygenes_lepido} -b {input.augustus_onlygenes_nasonia} -v > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_nooverlap_col9notsep.gff
+                #nasonia intersect lepido
+                bedtools intersect -a {input.augustus_onlygenes_nasonia} -b {input.augustus_onlygenes_lepido} -v > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_nasonia_lepido_nooverlap_col9notsep.gff
+                #sep_col9_col10
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_overlap_col9notsep.gff > {output.overlap_lepido_nasonia}
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_nooverlap_col9notsep.gff > {output.nooverlap_lepido_nasonia}
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_nasonia_lepido_nooverlap_col9notsep.gff > {output.nooverlap_nasonia_lepido}
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_overlap_col9notsep.gff
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_nooverlap_col9notsep.gff
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_nasonia_lepido_nooverlap_col9notsep.gff
+                """
+
+
+rule choose_predict1: #choisit les predictions les plus longues
+        input:
+                overlap_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_overlap.gff",
+                nooverlap_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_nooverlap.gff",
+                nooverlap_nasonia_lepido=intersect_augustus_dir+"{species}/intersect_{species}_nasonia_lepido_nooverlap.gff"
+        output:
+                predict_lepido_nasonia=intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia.gff"
+        shell:
+                """
+                python3 {scripts_dir}choose_predict.py -i {input.overlap_lepido_nasonia} -o {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_overlap_chosen.gff
+                cat {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_overlap_chosen.gff {input.nooverlap_lepido_nasonia} {input.nooverlap_nasonia_lepido} > {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notsort.gff
+                sort {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notsort.gff > {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notuniq.gff
+                uniq {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notuniq.gff > {output.predict_lepido_nasonia}
+                rm {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notsort.gff
+                rm {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_notuniq.gff
+                """
+
+rule intersect_step2:
+        params:
+                name="intersect2_{species}",
+                out=logs_dir+"intersect2_{species}.out",
+                err=logs_dir+"intersect2_{species}.error",
+                partition="normal",
+                threads="8",
+                time="05:00:00",
+                mem="20G"
+        input:
+                predict_lepido_nasonia=intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia.gff",
+                augustus_onlygenes_fly=augustus_dir+"{species}/augustus_{species}_fly_onlygenes.gff"
+        output:
+                overlap_lepido_nasonia_fly=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_overlap.gff",
+                nooverlap_lepido_nasonia_fly=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_nooverlap.gff",
+                nooverlap_fly_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_fly_lepido_nasonia_nooverlap.gff"
+        shell:
+                """
+                #lepido_nasonia intersect fly
+                bedtools intersect -a {input.predict_lepido_nasonia} -b {input.augustus_onlygenes_fly} -wo > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_overlap_col9notsep.gff
+                bedtools intersect -a {input.predict_lepido_nasonia} -b {input.augustus_onlygenes_fly} -v > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_nooverlap_col9notsep.gff
+                #fly intersect lepido_nasonia
+                bedtools intersect -a {input.augustus_onlygenes_fly} -b {input.predict_lepido_nasonia} -v > {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_fly_lepido_nasonia_nooverlap_col9notsep.gff
+                #sep_col9_col10
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_overlap_col9notsep.gff > {output.overlap_lepido_nasonia_fly}
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_nooverlap_col9notsep.gff > {output.nooverlap_lepido_nasonia_fly}
+                sed 's/*/\t*/g' {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_fly_lepido_nasonia_nooverlap_col9notsep.gff > {output.nooverlap_fly_lepido_nasonia}
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_overlap_col9notsep.gff
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_nooverlap_col9notsep.gff
+                rm {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_fly_lepido_nasonia_nooverlap_col9notsep.gff
+                """
+
+
+rule choose_predict2: #choisit les predictions les plus longues
+        input:
+                overlap_lepido_nasonia_fly=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_overlap.gff",
+                nooverlap_lepido_nasonia_fly=intersect_augustus_dir+"{species}/intersect_{species}_lepido_nasonia_fly_nooverlap.gff",
+                nooverlap_fly_lepido_nasonia=intersect_augustus_dir+"{species}/intersect_{species}_fly_lepido_nasonia_nooverlap.gff"
+        output:
+                predict_gff=intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia_fly.gff"
+        shell:
+                """
+                python3 {scripts_dir}choose_predict.py -i {input.overlap_lepido_nasonia_fly} -o {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_overlap_chosen.gff
+                cat {intersect_augustus_dir}{wildcards.species}/intersect_{wildcards.species}_lepido_nasonia_fly_overlap_chosen.gff {input.nooverlap_lepido_nasonia_fly} {input.nooverlap_fly_lepido_nasonia} > {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notsort.gff
+                sort {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notsort.gff > {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notuniq.gff
+                uniq {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notuniq.gff > {output.predict_gff}
+                rm {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notsort.gff
+                rm {intersect_augustus_dir}{wildcards.species}/predict_{wildcards.species}_lepido_nasonia_fly_notuniq.gff
+                """
+
+rule get_codingseq_trainings:
+        params:
+                name="get_codingseq_trainings_{species}_{training}",
+                out=logs_dir+"get_codingseq_trainings_{species}_{training}.out",
+                err=logs_dir+"get_codingseq_trainings_{species}_{training}.error",
+                partition="normal",
+                threads="8",
+                time="30:00:00",
+                mem="30G"
+        input:
+                predict_gff=intersect_augustus_dir+"{species}/predict_{species}_lepido_nasonia_fly.gff",
+                predict_codingseq_fa=augustus_dir+"{species}/augustus_{species}_{training}.fa"
+        output:
+                predict_training=intersect_augustus_dir+"{species}/predict_{species}_{training}.fa"
+        shell:
+                """
+                list_{wildcards.species}_{wildcards.training}_codingseq=$(awk '$10 ~ "*{wildcards.training}" {{print $9}}' {input.predict_gff})
+                touch {output.predict_training}
+                for i in $list_{wildcards.species}_{wildcards.training}_codingseq
+                    do
+                        awk -v RS='>' -v gnb=$i\.t '$0~gnb {{print RS $0}}' {input.predict_codingseq_fa} >> {output.predict_training}
+                    done
+                """
+
+
+rule get_codingseq: #rename headers fasta files : add training to header & put all in codingseq fa
+        input:
+                predict_lepido=intersect_augustus_dir+"{species}/predict_{species}_lepido.fa",
+                predict_nasonia=intersect_augustus_dir+"{species}/predict_{species}_nasonia.fa",
+                predict_fly=intersect_augustus_dir+"{species}/predict_{species}_fly.fa"
+        output:
+                codingseq=codingseq_dir+"codingseq_{species}.fa"
+        shell:
+                """
+                sed 's/>.*/&_lepido_training/' {input.predict_lepido} > {output.codingseq}
+                sed 's/>.*/&_nasonia_training/' {input.predict_nasonia} >> {output.codingseq}
+                sed 's/>.*/&_fly_training/' {input.predict_fly} >> {output.codingseq}
+                """
+
+/beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/ategumia_lotanalisdhj09/augustus_ategumia_lotanalisdhj09_fly.gff
+/beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/acharia_hyperoche/predict_acharia_hyperoche_lepido.fa
+--rerun-incomplete

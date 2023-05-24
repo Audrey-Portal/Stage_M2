@@ -1,0 +1,86 @@
+####Dry RUN command :
+#nohup snakemake -j 200 -s snakemake_mmseqs_taxo_cds -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_mmseqs_taxo_cds.out &
+####Unlock command :
+#nohup snakemake -j 200 -s snakemake_mmseqs_taxo_cds --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_mmseqs_taxo_cds.out &
+####Real command :
+#nohup snakemake -j 200 -s snakemake_mmseqs_taxo_cds --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_mmseqs_taxo_cds.out &
+
+import re
+import os
+
+#paths
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Mmseqs_taxo/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/"   #là où vont les logs de chaque script
+databases_dir="/beegfs/project/horizon/databases/"
+cds_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/"   #où se trouvent les séquences codantes
+taxo_cds_dir="/beegfs/data/aportal/horizon/Mmseqs_taxo/cds_augustus/"   #où se trouvent les assignations taxonomiques sur les séquences codantes
+
+#species_list
+species_file = open('/beegfs/data/aportal/horizon/lists/species_list.txt', 'r')
+# read the content and split when newline 
+list_species = species_file.read().split('\n') 
+list_species = list_species[:-1] 
+
+
+rule all:
+        input:
+                expand(taxo_cds_dir+"taxo_cds_{species}", species = list_species), #rule assign_taxo_cds
+                expand(taxo_cds_dir+"taxo_cds_{species}_report", species = list_species) #rule assign_taxo_cds
+
+rule assign_taxo_cds :
+        params:
+                name="assign_taxo_cds_{species}",
+                out=logs_dir+"assign_taxo_cds_{species}.out",
+                err=logs_dir+"assign_taxo_cds_{species}.error",
+                partition="normal",
+                threads="8",
+                time="30:00:00",
+                mem="150G"
+        input:
+                cds_fa=cds_dir+"codingseq_{species}.fa"
+        output:
+                taxo_cds=taxo_cds_dir+"taxo_cds_{species}",
+                taxo_cds_report=taxo_cds_dir+"taxo_cds_{species}_report"
+        shell:
+                """
+                mkdir -p {cds_dir}codingseq_{wildcards.species}_DB/
+                mmseqs createdb {input.cds_fa} {cds_dir}codingseq_{wildcards.species}_DB/codingseq_{wildcards.species}_DB
+                mmseqs taxonomy --tax-lineage 1 {cds_dir}codingseq_{wildcards.species}_DB/codingseq_{wildcards.species}_DB {databases_dir}UniRef90/UniRef90 {output.taxo_cds} {taxo_cds_dir}tmp_{wildcards.species} --min-length 40
+                mmseqs taxonomyreport {databases_dir}UniRef90/UniRef90 {output.taxo_cds} {output.taxo_cds_report}
+                """
+
+
+meteorus_janzen04
+
+###MANUAL
+
+mkdir -p /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_meteorus_janzen04_DB/
+mmseqs createdb /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_meteorus_janzen04.fa /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_meteorus_janzen04_DB/codingseq_meteorus_janzen04_DB
+
+#!/bin/bash
+#SBATCH -J assign_taxo_cds_mj04
+#SBATCH --partition=normal
+#SBATCH -t 30:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/logs/assign_taxo_cds_mj04.out
+#SBATCH -e /beegfs/data/aportal/horizon/logs/assign_taxo_cds_mj04.error
+
+mmseqs taxonomy --tax-lineage 1 /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_meteorus_janzen04_DB/codingseq_meteorus_janzen04_DB /beegfs/project/horizon/databases/UniRef90/UniRef90 /beegfs/data/aportal/horizon/Mmseqs_taxo/cds_augustus/taxo_cds_meteorus_janzen04 /beegfs/data/aportal/horizon/Mmseqs_taxo/cds_augustus/tmp_meteorus_janzen04 --remove-tmp-files
+
+#!/bin/bash
+#SBATCH -J assign_taxo_cds_mj04
+#SBATCH --partition=normal
+#SBATCH -t 30:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+#SBATCH --constraint=haswell|broadwell|skylake
+#SBATCH --exclude=pbil-deb27
+#SBATCH -o /beegfs/data/aportal/horizon/logs/assign_taxo_cds_mj04.out
+#SBATCH -e /beegfs/data/aportal/horizon/logs/assign_taxo_cds_mj04.error
+
+
+mmseqs taxonomyreport /beegfs/project/horizon/databases/UniRef90/UniRef90 /beegfs/data/aportal/horizon/Mmseqs_taxo/cds_augustus/taxo_cds_meteorus_janzen04 /beegfs/data/aportal/horizon/Mmseqs_taxo/cds_augustus/taxo_cds_meteorus_janzen04_report
+

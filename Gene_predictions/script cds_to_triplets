@@ -1,0 +1,12 @@
+###Passage de CDS à triplets
+#use triplets_content_table_full.txt
+#pour chaque triplet, récupère 3 noms d'espèce et en récupère les cds, cat dans un fichier triplet.fa
+
+triplets_list=`cat /beegfs/data/aportal/horizon/lists/triplets_list_full.txt`
+for i in $triplets_list
+do   
+    esp1=$(awk -v trip="$i" '$1==trip {print $4}' /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt)
+    esp2=$(awk -v trip="$i" '$1==trip {print $5}' /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt)
+    esp3=$(awk -v trip="$i" '$1==trip {print $6}' /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt)
+    cat /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_$esp1\.fa /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_$esp2\.fa /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_$esp3\.fa > /beegfs/data/aportal/horizon/Clustering/triplets/$i\.fa
+done

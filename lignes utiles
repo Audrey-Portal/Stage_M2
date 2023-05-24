@@ -1,0 +1,146 @@
+cut -f1 cluster_triplet_190.tsv |sort > test #recup col 1 et trie
+cut -f1 cluster_triplet_190.tsv |sort|uniq -c > test # recup col 1, trie, ajoute nbr membres triplet devant
+cut -f1 cluster_triplet_190.tsv |sort|uniq -c|awk '{$1=$1}1' > test # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant
+cut -f1 cluster_triplet_190.tsv |sort|uniq -c|awk '{$1=$1}1'|cut -f1 -d " " > test #recup colonne nbr mbres par cluster
+cut -f1 cluster_triplet_190.tsv |sort|uniq -c|awk '{$1=$1}1'|cut -f1 -d " "|sort > test #trie
+
+uniq -c test > test2 #nombre de clusters de x sequences
+
+
+###ATTENTION ne fonctionne que si TSV
+cut -f1 cluster_triplet_190.tsv |sort|uniq -c|awk '{$1=$1}1'|sort > test3 # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant et trie
+awk '$1 != "1"' test3 > test4 #retire lignes dont $1 = 1 : on a la liste des clusters de plus de 1
+
+cut -f1 mini_clusters.tsv |sort|uniq -c|awk '{$1=$1}1'|sort > mini_test3 # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant et trie
+awk '$1 != "1"' mini_test3 > mini_test4 #retire lignes dont $1 = 1 : on a la liste des clusters de plus de 1
+
+#recup fasta des membres ###POUR CHAQUE CLUSTER DE CHAQUE TRIPLET
+seqkit grep -n -f ids_file.txt sequences.fasta
+
+
+
+
+
+#R unlist
+species_col <- NULL
+
+extr_species_name<-function(x){
+  elements<-strsplit(x, "_")
+  elements <-unlist(elements)
+  species <- paste(elements[1],elements[2], sep="_")
+  return(species)
+}
+
+species<-sapply(cluster_member,extr_species_name)
+
+for (i in cluster_member){
+  elements <- strsplit(i, "_")
+  elements <-unlist(elements)
+  species <- paste(elements[1],elements[2], sep="_")
+  species_col<-c(species_col,species)
+}
+
+
+###POUR AVOIR TABLEAU AVEC SINGLETONS
+####Dry RUN command :
+#nohup snakemake -j 200 -R -s snakemake_clusters_interest -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_clusters_interest.out &
+####Unlock command :
+#nohup snakemake -j 200 -R -s snakemake_clusters_interest --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_clusters_interest.out &
+####Real command :
+#nohup snakemake -j 200 -R -s snakemake_clusters_interest --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_clusters_interest.out &
+
+import re
+import os
+
+#paths
+bin_dir="/beegfs/project/horizon/bin/miniconda3/bin/"   #bin du projet horizon où se trouvent les programmes
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Clustering/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/Clustering/"   #là où vont les logs de chaque script
+triplets_dir="/beegfs/data/aportal/horizon/Clustering/triplets/"   #où se trouvent les séquences codantes des espèces par triplets
+clusters_dir="/beegfs/data/aportal/horizon/Clustering/clusters/" #où se trouvent les résultats des clusters
+clusters_interest_dir="/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/" #où se trouvent les résultats des clusters d'intérêt
+
+#triplets_list
+triplets_file = open('/beegfs/data/aportal/horizon/lists/triplets_list.txt', 'r')
+list_triplets = triplets_file.read().split('\n') 
+list_triplets = list_triplets[:-1] 
+
+rule all:
+        input:
+                expand(clusters_dir+"{triplet}/cluster_{triplet}_repres_80.tsv", triplet = list_triplets), #rule recup_cluster_names
+                expand(clusters_dir+"{triplet}/cluster_triplet_190_roles_80.tsv", triplet = list_triplets), #rule recup_cluster_roles
+                expand(clusters_dir+"{triplet}/cluster_triplet_190_roles_table_wsingleton_80.txt", triplet = list_triplets) #rule recup_cluster_roles
+                
+
+localrules :
+        recup_cluster_names
+
+rule recup_cluster_names: ### Récup noms des clusters > 1 (sequence de référence de chaque cluster + nombre d'éléments)
+        input:
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}_80.tsv"
+        output:
+                cluster_repres=clusters_dir+"{triplet}/cluster_{triplet}_repres_80.tsv"
+        shell:
+                """
+                cut -f1 {input.cluster_tsv} |sort|uniq -c|awk '{{$1=$1}}1'|sort > {output.cluster_repres} # recup col 1, trie, ajoute nbr membres triplet devant et vire les espaces devant et trie
+                """
+
+
+rule recup_cluster_roles:
+        params:
+                name="cluster_roles_{triplet}",
+                out=logs_dir+"cluster_roles_{triplet}.out",
+                err=logs_dir+"cluster_roles_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="10:00:00",
+                mem="20G"
+        input:
+                triplets_content="/beegfs/data/aportal/horizon/lists/list_triplets_content.txt",
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}_80.tsv",
+                cluster_repres=clusters_dir+"{triplet}/cluster_{triplet}_repres_80.tsv"
+        output:
+                cluster_n_name_role=clusters_dir+"{triplet}/cluster_triplet_190_roles_80.tsv",
+                cluster_roles_table=clusters_dir+"{triplet}/cluster_triplet_190_roles_table_wsingleton_80.txt"
+        shell:
+                """
+                /beegfs/data/soft/R-4.0.5/bin/Rscript {scripts_dir}script_recup_cluster_roles.R --input_ct {input.triplets_content} --input_tsv {input.cluster_tsv} --input_rpz {input.cluster_repres} --output_n_nm_r {output.cluster_n_name_role} --output_rtbl {output.cluster_roles_table}
+                """
+
+
+
+
+
+
+#ERRORS
+
+error in rule get_codingseq_trainings - hyposoter_inb-42dhj01 
+
+augustus predict campylocheta wood03 lepido, nasonia, fly
+get_codingseq_trainings hyposoter_inb-42dhj01
+
+Error in rule get_codingseq_trainings:
+    jobid: 2347
+    output: /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/hyposoter_inb-42dhj01/predict_hyposoter_inb-42dhj01_lepido.fa
+    shell:
+        
+                list_hyposoter_inb-42dhj01_lepido_codingseq=$(awk '$10 ~ "*lepido" {print $9}' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/hyposoter_inb-42dhj01/predict_hyposoter_inb-42dhj01_lepido_nasonia_fly.gff)
+                touch /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/hyposoter_inb-42dhj01/predict_hyposoter_inb-42dhj01_lepido.fa
+                for i in $list_hyposoter_inb-42dhj01_lepido_codingseq
+                    do
+                        awk -v RS='>' -v gnb=$i\.t '$0~gnb {print RS $0}' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/hyposoter_inb-42dhj01/augustus_hyposoter_inb-42dhj01_lepido.fa >> /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/hyposoter_inb-42dhj01/predict_hyposoter_inb-42dhj01_lepido.fa
+                    done
+                
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Error in rule augustus_predict: #FOR ALL TRAININGS
+    jobid: 155
+    output: /beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/campylocheta_wood03/augustus_campylocheta_wood03_nasonia.gff, /beegfs/data/aportal/horizon/Genes_prediction/Augustus/august
+us/campylocheta_wood03/augustus_campylocheta_wood03_nasonia.fa
+    shell:
+        
+                bash /beegfs/data/aportal/horizon/scripts/Genes_prediction/script_augustus_predict_nasonia.sh /beegfs/data/aportal/horizon/Genomes/campylocheta_wood03.fa /beegfs/data/aportal/horizon/
+Genes_prediction/Augustus/augustus/campylocheta_wood03/augustus_campylocheta_wood03_nasonia.gff /beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/campylocheta_wood03/augustus_campylocheta_wood03_nasonia.codingseq /beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/campylocheta_wood03/augustus_campylocheta_wood03_nasonia.fa
+                
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 4652560

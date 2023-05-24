@@ -1,0 +1,369 @@
+####Dry RUN command :
+#nohup snakemake -j 700 -s snakemake_treatment_clusters_interest -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_treatment_clusters_interest.out &
+####Unlock command :
+#nohup snakemake -j 700 -s snakemake_treatment_clusters_interest --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_treatment_clusters_interest.out &
+####Real command :
+#nohup snakemake -j 700 -s snakemake_treatment_clusters_interest --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_treatment_clusters_interest.out &
+
+import re
+import os
+
+#paths
+bin_dir="/beegfs/project/horizon/bin/miniconda3/bin/"   #bin du projet horizon où se trouvent les programmes
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Clustering/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/Clustering/clusters_of_interest/"   #là où vont les logs de chaque script
+augustus_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/augustus/"
+clusters_dir="/beegfs/data/aportal/horizon/Clustering/clusters/" #où se trouvent les résultats des clusters
+clusters_interest_dir="/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/" #où se trouvent les résultats des clusters d'intérêt
+logs_taxo_dir="/beegfs/data/aportal/horizon/logs/Mmseqs_taxo/clusters_of_interest/"   #là où vont les logs de chaque script
+db_dir="/beegfs/project/horizon/db/"
+seq_dir="/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/"   #où se trouvent les séquences codantes des clusters d'intérêt
+taxo_seq_dir="/beegfs/data/aportal/horizon/Mmseqs_taxo/clusters_of_interest/"   #où se trouvent les assignations taxonomiques sur les séquences codantes
+
+#triplets_list
+triplets_file = open('/beegfs/data/aportal/horizon/lists/triplets_list_full.txt', 'r')
+list_triplets = triplets_file.read().split('\n') 
+list_triplets = list_triplets[:-1] 
+
+rule all:
+        input:
+                expand(logs_dir+"seq/{triplet}_seq_of_interest_done", triplet = list_triplets), #rule recup_fasta
+                expand(logs_dir+"prot/{triplet}_prot_of_interest_done", triplet = list_triplets), #rule recup_prot
+                expand(logs_dir+"frame/{triplet}_frame_of_interest_done", triplet = list_triplets), #rule correct_frame
+                expand(logs_dir+"msa/{triplet}_msa_of_interest_done", triplet = list_triplets) #rule msa_values
+               
+
+localrules :
+        recup_fasta
+
+rule recup_fasta: ### Récup FASTA des membres du cluster (par cluster par triplet)
+        input:
+                table_clusters_interest=clusters_interest_dir+"clusters_interest_table.txt",
+                cluster_fa=clusters_dir+"{triplet}/cluster_{triplet}_seq.fa"
+        output:
+                flag=logs_dir+"seq/{triplet}_seq_of_interest_done"
+        shell:
+                """
+                clusters_of_interest_triplet=$(awk -v triplet={wildcards.triplet} 'triplet==$1 {{print $2}}' {input.table_clusters_interest})
+                for i in $clusters_of_interest_triplet
+                do
+                        mkdir -p {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/
+                        {bin_dir}seqkit grep -n -f {clusters_interest_dir}{wildcards.triplet}/members_{wildcards.triplet}/members_$i\.txt {input.cluster_fa} > {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\_unclean.fa
+                        bash {scripts_dir}script_awk_recup_fasta.sh {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\_unclean.fa {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\.fa
+                        rm {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\_unclean.fa
+                done
+                touch {output.flag}
+                """
+
+
+rule recup_prot:
+        params:
+                name="prot_{triplet}",
+                out=logs_dir+"prot_{triplet}.out",
+                err=logs_dir+"prot_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="1:00:00",
+                mem="20G"
+        input:
+                table_clusters_interest=clusters_interest_dir+"clusters_interest_table.txt",
+                must=logs_dir+"seq/{triplet}_seq_of_interest_done"
+        output:
+                flag=logs_dir+"prot/{triplet}_prot_of_interest_done"
+        shell:
+                """
+                mkdir -p {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/
+                clusters_of_interest_triplet=$(awk -v triplet={wildcards.triplet} 'triplet==$1 {{print $2}}' {clusters_interest_dir}clusters_interest_table.txt)
+                for i in $clusters_of_interest_triplet
+                do
+                        rm -f {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/prot_$i\.fa
+                        bash {scripts_dir}script_recup_prot.sh {clusters_interest_dir}{wildcards.triplet}/members_{wildcards.triplet}/members_$i\.txt {augustus_dir} {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/tmp_seq_wrong_header.fa {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/tmp_seq_right_header.fa {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/prot_$i\.fa 
+                done
+                touch {output.flag}
+                """
+
+
+rule correct_frame:
+        params:
+                name="correct_frame_{triplet}",
+                out=logs_dir+"correct_frame_{triplet}.out",
+                err=logs_dir+"correct_frame_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="30:00:00",
+                mem="20G"
+        input:
+                table_clusters_interest=clusters_interest_dir+"clusters_interest_table.txt",
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv",
+                must=logs_dir+"prot/{triplet}_prot_of_interest_done"
+        output:
+                flag=logs_dir+"frame/{triplet}_frame_of_interest_done"
+        shell:
+                """
+                clusters_of_interest_triplet=$(awk -v triplet={wildcards.triplet} 'triplet==$1 {{print $2}}' {input.table_clusters_interest})
+                for i in $clusters_of_interest_triplet
+                do
+                        /beegfs/data/soft/R-4.0.5/bin/Rscript {scripts_dir}script_correct_frame.R --input_seq {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\.fa --input_prot {clusters_interest_dir}{wildcards.triplet}/prot_{wildcards.triplet}/prot_$i\.fa --input_tsv {input.cluster_tsv}
+                        bash {scripts_dir}script_awk_recup_fasta.sh {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\.fa {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\_tmp.fa
+                        mv {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\_tmp.fa {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\.fa
+                done
+                touch {output.flag}
+                """
+
+
+rule msa_values:
+        params:
+                name="msa_values_{triplet}",
+                out=logs_dir+"msa_values_{triplet}.out",
+                err=logs_dir+"msa_values_{triplet}.error",
+                partition="normal",
+                threads="8",
+                time="30:00:00",
+                mem="20G"
+        input:
+                table_clusters_interest=clusters_interest_dir+"clusters_interest_table.txt",
+                cluster_tsv=clusters_dir+"{triplet}/cluster_{triplet}.tsv",
+                must=logs_dir+"frame/{triplet}_frame_of_interest_done"
+        output:
+                flag=logs_dir+"msa/{triplet}_msa_of_interest_done"
+        shell:
+                """
+                clusters_of_interest_triplet=$(awk -v triplet={wildcards.triplet} 'triplet==$1 {{print $2}}' {input.table_clusters_interest})
+                for i in $clusters_of_interest_triplet
+                do
+                        mkdir -p /beegfs/data/aportal/horizon/Clustering/clusters_of_interest/{wildcards.triplet}/msa_{wildcards.triplet}/
+                        /beegfs/data/soft/R-4.0.5/bin/Rscript {scripts_dir}script_msa_values.R --input_seq {clusters_interest_dir}{wildcards.triplet}/seq_{wildcards.triplet}/seq_$i\.fa --input_tsv {input.cluster_tsv}
+                done
+                touch {output.flag}
+                """
+
+
+
+
+
+###script_awk_recup_fasta.sh
+#awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' $1 > $2
+
+
+
+
+
+###script_recup_prot.sh
+#members_cluster_of_interest_triplet=`cat $1`
+#for j in $members_cluster_of_interest_triplet
+#do
+#        species=$(sed -e 's/\([^\.]*\).*/\1/;s/_[0-9]*$//' <<< "$j")  #s/\([^\.]*\).*/\1/ grab everything before the first period, s/-[0-9]*$//get rid of that trailing _ and first version digit
+#        gene=$(grep -oP '(?<=\.).*?(?=\.)' <<< "$j") #extrait sequence entre 2 points (ici numéro de gène)
+#        training=$(grep -oP '(?<=t1_).*?(?=_training)' <<< "$j") #extrait sequence entre t1_ et _training (training augustus)
+#        seqkit grep -w 0 -ip $gene\.t1 $2$species\/augustus_$species\_$training\.aa > $3
+#        sed "s/>.*/>$j/" $3 > $4
+#        cat $4 >> $5
+#        rm $3
+#        rm $4
+#done
+
+
+
+
+
+### script_correct_frame.R
+#!/usr/bin/env Rscript
+
+library(argparse)
+
+parser <- ArgumentParser(description= 'recup valeurs alignement sequences clusters of interest')
+
+parser$add_argument('--input_seq', '-is', help= 'I am the sequence fasta file of cluster of interest')
+parser$add_argument('--input_prot', '-ip', help= 'I am the protein fasta file of cluster of interest')
+parser$add_argument('--input_tsv', '-it', help= 'I am the tsv file of cluster')
+
+
+xargs<- parser$parse_args()
+
+#triplet_number
+library(miceadds)
+name <- miceadds::filename_split(xargs$input_tsv, file_sep="_", file_ext=".")
+triplet_nb <- gsub(" ","",paste("triplet_",name$suffix))
+
+library(DECIPHER)
+library(seqinr)
+
+seq_file<-xargs$input_seq
+prot_file<-xargs$input_prot
+seqs <- seqinr::read.fasta(seq_file)
+prots <- seqinr::read.fasta(prot_file, seqtype="AA")
+
+#mettre en bonne frame
+for (i in 1:length(seqs)){
+  free_sequence<-as.vector(seqs[[i]])
+  free_prot<-as.vector(prots[[i]])
+  frame0 <- seqinr::translate(free_sequence, frame = 0, sens = "F", numcode = 1, NAstring = "X", ambiguous = FALSE)
+  frame1 <- seqinr::translate(free_sequence, frame = 1, sens = "F", numcode = 1, NAstring = "X", ambiguous = FALSE)
+  frame2 <- seqinr::translate(free_sequence, frame = 2, sens = "F", numcode = 1, NAstring = "X", ambiguous = FALSE)
+  if (frame0[length(frame0)]=="*"){
+    frame0 <- frame0[-length(frame0)]
+  }
+  if (frame1[length(frame1)]=="*"){
+    frame1 <- frame1[-length(frame1)]
+  }
+  if (frame2[length(frame2)]=="*"){
+    frame2 <- frame2[-length(frame2)]
+  }
+  if (identical(frame1,free_prot)){
+    free_sequence<-free_sequence[-1] #élague de 1 premier nucléotide
+  }
+  else if (identical(frame2,free_prot)){
+    free_sequence<-free_sequence[-1][-1] #élague de 2 premiers nucléotides
+  }
+  seqs[[i]]<-free_sequence
+}
+#élaguer les nucléotides de queue en trop
+for (i in 1:length(seqs)){
+  free_sequence<-as.vector(seqs[[i]])
+  reste <- length(free_sequence)%%3
+  if (reste == 1){
+    free_sequence<-free_sequence[-length(free_sequence)]
+  }
+  if (reste == 2){
+    free_sequence<-free_sequence[-length(free_sequence)]
+    free_sequence<-free_sequence[-length(free_sequence)]
+  }
+  seqs[[i]]<-free_sequence
+}
+#write seq finale in file
+names_seq<-c(names(seqs))
+myfile <- file.path(paste0(seq_file))
+write.fasta(seqs, names_seq, myfile, open = "w", nbchar = 60, as.string = FALSE)
+
+
+
+
+
+### script_msa_values.R
+#!/usr/bin/env Rscript
+
+library(argparse)
+
+parser <- ArgumentParser(description= 'recup valeurs alignement sequences clusters of interest')
+
+parser$add_argument('--input_seq', '-is', help= 'I am the sequence fasta file of cluster of interest')
+parser$add_argument('--input_tsv', '-it', help= 'I am the tsv file of clusters')
+
+xargs<- parser$parse_args()
+
+#triplet_number
+library(miceadds)
+name <- miceadds::filename_split(xargs$input_tsv, file_sep="_", file_ext=".")
+triplet_nb <- gsub(" ","",paste("triplet_",name$suffix))
+
+### Alignement CDS : cds.fa de chaque cluster d'intérêt
+library(DECIPHER)
+seq_file<-xargs$input_seq
+seqs<-readDNAStringSet(seq_file)
+CDS_aln <- AlignTranslation(seqs) # align the translation, then reverse translate
+
+split_seq_name <- strsplit(seq_file,"/")
+name_of_cluster_file<-unlist(strsplit(unlist(split_seq_name[[1]][10]), '\\.fa'))
+myfile <- file.path(paste0("/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/",triplet_nb,"/msa_",triplet_nb,"/"), paste0(name_of_cluster_file, "_CDS_aligned.fa"))
+writeXStringSet(CDS_aln, filepath = myfile)
+ 
+
+### récup scores
+library(seqinr)
+myfile <- file.path(paste0("/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/",triplet_nb,"/msa_",triplet_nb,"/"), paste0(name_of_cluster_file, "_CDS_aligned.fa"))
+alignt<-read.alignment(file = myfile , format = "fasta")
+kaks_res<-kaks(alignt,rmgap=F)
+
+#recup dS
+vect_dS<-as.vector(kaks_res$ks) #vecteur scores dS
+vect_names<-names(CDS_aln) #vecteur noms de seq
+n_seqs<-length(vect_names) #nombre séquences cluster
+matrix_dS= matrix(0, n_seqs, n_seqs) #adapt à nbr seq
+matrix_dS[lower.tri(matrix_dS, diag=FALSE)] <- vect_dS
+rownames(matrix_dS) <- vect_names
+colnames(matrix_dS) <- vect_names
+
+seq1 <- c()
+seq2 <- c()
+dS <- c()
+for (i in 1:n_seqs){
+  for (j in 1:n_seqs){
+    if (i>j){
+      seq1 <- append(seq1,rownames(matrix_dS)[i])
+      seq2 <- append(seq2,colnames(matrix_dS)[j])
+      dS <- append(dS,matrix_dS[i,j])
+    }
+  }
+}
+inter_dS_scores <- data.frame(seq1, seq2, dS)
+
+#ajout dn
+vect_dN<-as.vector(kaks_res$ka) #vecteur scores dS
+matrix_dN= matrix(0, n_seqs, n_seqs) #adapt à nbr seq
+matrix_dN[lower.tri(matrix_dN, diag=FALSE)] <- vect_dN
+rownames(matrix_dN) <- vect_names
+colnames(matrix_dN) <- vect_names
+
+seq1 <- c()
+seq2 <- c()
+dN <- c()
+for (i in 1:n_seqs){
+  for (j in 1:n_seqs){
+    if (i>j){
+      seq1 <- append(seq1,rownames(matrix_dN)[i])
+      seq2 <- append(seq2,colnames(matrix_dN)[j])
+      dN <- append(dN,matrix_dN[i,j])
+    }
+  }
+}
+inter_dN_scores <- data.frame(seq1, seq2, dN)
+inter_dSdN_scores<-cbind(inter_dS_scores, inter_dN_scores$dN)
+
+#ajout dist
+dist_alignt<-dist.alignment(alignt, matrix = c("identity", "similarity"))
+vect_dist<-as.vector(dist_alignt) #vecteur scores dS
+matrix_dist= matrix(0, n_seqs, n_seqs) #adapt à nbr seq
+matrix_dist[lower.tri(matrix_dist, diag=FALSE)] <- vect_dist
+rownames(matrix_dist) <- vect_names
+colnames(matrix_dist) <- vect_names
+
+seq1 <- c()
+seq2 <- c()
+dist <- c()
+for (i in 1:n_seqs){
+  for (j in 1:n_seqs){
+    if (i>j){
+      seq1 <- append(seq1,rownames(matrix_dist)[i])
+      seq2 <- append(seq2,colnames(matrix_dist)[j])
+      dist <- append(dist,matrix_dist[i,j])
+    }
+  }
+}
+inter_dist_scores <- data.frame(seq1, seq2, dist)
+inter_dSdNdist_scores<-cbind(inter_dSdN_scores,(inter_dist_scores$dist)^2)
+
+#ajout l alignement entre séquences
+align_table<-data.frame(matrix(nrow = width(CDS_aln)[1], ncol = 0)) 
+for (k in 1:length(alignt$seq)){
+  align_table<-cbind(align_table, as.data.frame(strsplit(alignt$seq[[k]], '')))
+}
+colnames(align_table)<-vect_names
+
+n_combinations<-length(inter_dSdNdist_scores$i) #number of sequence combinations
+align_length<-c()
+for (k in 1:n_combinations){
+  seq_i<-inter_dSdNdist_scores$seq1[k]
+  seq_j<-inter_dSdNdist_scores$seq2[k]
+  numi<-which(colnames(align_table) == seq_i)
+  numj<-which(colnames(align_table) == seq_j)
+  numalign<-ifelse(align_table[,numi]!="-" & align_table[,numj]!="-","aligned","blank")
+  align_length<-append(align_length,sum(numalign == "aligned"))
+}
+inter_dSdNdistlength_scores<-cbind(inter_dSdNdist_scores,align_length)
+
+#renommer colonnes! 
+colnames(inter_dSdNdistlength_scores) <- c("i","j","dS","dN","dist","align_length")
+
+myfile <- file.path(paste0("/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/",triplet_nb,"/msa_",triplet_nb,"/"), paste0("align_scores_table_",name_of_cluster_file,".txt"))
+write.table(inter_dSdNdistlength_scores, file = myfile, sep = "\t", dec=".", row.names = FALSE, col.names = TRUE,
+            quote = FALSE, append = FALSE)

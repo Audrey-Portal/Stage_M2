@@ -1,0 +1,92 @@
+####Dry RUN command :
+#nohup snakemake -j 200 -s snakemake_busco_intersect -n --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_busco_intersect.out &
+####Unlock command :
+#nohup snakemake -j 200 -s snakemake_busco_intersect --unlock --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 "  &> nohup_snakemake_busco_intersect.out &
+####Real command :
+#nohup snakemake -j 200 -s snakemake_busco_intersect --cluster "sbatch -J {params.name} -p {params.partition} -t {params.time} --mem {params.mem} --cpus-per-task {params.threads} -o {params.out} -e {params.err} --constraint='haswell|broadwell|skylake' --exclude=pbil-deb27 " &> nohup_snakemake_busco_intersect.out &
+
+import re
+import os
+
+#paths
+scripts_dir="/beegfs/data/aportal/horizon/scripts/Busco/"   #où se trouvent les scripts appelés
+logs_dir="/beegfs/data/aportal/horizon/logs/"   #là où vont les logs de chaque script
+intersect_augustus_dir="/beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/" #où se trouvent les intersections entre positions des predictions augustus
+busco_dir="/beegfs/project/horizon/data/stats/busco/species/"
+busco_gff_dir="/beegfs/data/aportal/horizon/Busco/species/"
+intersect_busco_predict_dir="/beegfs/data/aportal/horizon/Busco/intersect_augustus/"
+
+#species_list
+species_file = open('/beegfs/data/aportal/horizon/lists/species_list.txt', 'r')
+# read the content and split when newline 
+list_species = species_file.read().split('\n') 
+list_species = list_species[:-1] 
+
+
+rule all:
+        input:
+                expand(busco_gff_dir+"busco_{species}.gff", species = list_species), #rule busco_gff
+                expand(intersect_busco_predict_dir+"intersect_busco_{species}_overlap.gff", species = list_species), #rule intersect_busco
+                expand(intersect_busco_predict_dir+"intersect_busco_{species}_nooverlap.gff", species = list_species) #rule intersect_busco
+
+
+
+localrules :
+        busco_gff
+
+
+rule busco_gff: #créer gff à partir de full_table.tsv
+        input:
+                busco_tsv=busco_dir+"{species}/run_insecta_odb10/full_table.tsv"
+        output:
+                busco_gff=busco_gff_dir+"busco_{species}.gff"
+        shell:
+                """
+                awk 'NR > 3 && $2=="Complete" {{print}}' {input.busco_tsv} > {busco_gff_dir}busco_{wildcards.species}.tsv
+                python3 {scripts_dir}Create_gff_busco.py -i {busco_gff_dir}busco_{wildcards.species}.tsv -o {output.busco_gff}
+                rm {busco_gff_dir}busco_{wildcards.species}.tsv
+                """
+
+rule intersect_busco:
+        params:
+                name="intersect_busco_{species}",
+                out=logs_dir+"intersect_busco_{species}.out",
+                err=logs_dir+"intersect_busco_{species}.error",
+                partition="normal",
+                threads="8",
+                time="03:00:00",
+                mem="20G"
+        input:
+                busco_gff=busco_gff_dir+"busco_{species}.gff",
+                predict_gff=intersect_augustus_dir+"predict_{species}_lepido_nasonia_fly.gff"
+        output:
+                overlap_busco_predict=intersect_busco_predict_dir+"intersect_busco_{species}_overlap.gff",
+                nooverlap_busco_predict=intersect_busco_predict_dir+"intersect_busco_{species}_nooverlap.gff"
+        shell:
+                """
+                #retirer tab avant *training
+                sed 's/\t*/*/g' {input.predict_gff} > {intersect_augustus_dir}predict_{wildcards.species}_tmp.gff
+                #intersect busco predict
+                bedtools intersect -a {input.busco_gff} -b {intersect_augustus_dir}predict_{wildcards.species}_tmp.gff -wo > {output.overlap_busco_predict}
+                bedtools intersect -a {input.busco_gff} -b {intersect_augustus_dir}predict_{wildcards.species}_tmp.gff -v > {output.nooverlap_busco_predict}
+                rm {intersect_augustus_dir}predict_{wildcards.species}_tmp.gff
+                """
+
+
+#retirer tab avant *training
+sed 's/\t*/*/g' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_lepido_nasonia_fly.gff > /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_tmp.gff
+#intersect busco predict
+bedtools intersect -a /beegfs/data/aportal/horizon/Busco/species/busco_meteorus_janzen04.gff -b /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_tmp.gff -wo > /beegfs/data/aportal/horizon/Busco/intersect_augustus/intersect_busco_meteorus_janzen04_overlap.gff
+bedtools intersect -a /beegfs/data/aportal/horizon/Busco/species/busco_meteorus_janzen04.gff -b /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_tmp.gff -v > /beegfs/data/aportal/horizon/Busco/intersect_augustus/intersect_busco_meteorus_janzen04_nooverlap.gff
+rm /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_tmp.gff
+
+bedtools intersect -a /beegfs/data/aportal/horizon/Busco/species/busco_meteorus_janzen04.gff -b /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_lepido_nasonia_fly.gff -wo > /beegfs/data/aportal/horizon/Busco/intersect_augustus/intersect_busco_meteorus_janzen04_overlap.gff
+bedtools intersect -a /beegfs/data/aportal/horizon/Busco/species/busco_meteorus_janzen04.gff -b /beegfs/data/aportal/horizon/Genes_prediction/Augustus/intersect_augustus/predict_meteorus_janzen04_lepido_nasonia_fly.gff -v > /beegfs/data/aportal/horizon/Busco/intersect_augustus/intersect_busco_meteorus_janzen04_nooverlap.gff
+
+meteorus_janzen04
+
+#sep_col9_col10
+##sed 's/*/\t*/g' {intersect_busco_predict_dir}intersect_busco_{wildcards.species}_overlap_colnotsep.gff > {output.overlap_busco_predict}
+##sed 's/*/\t*/g' {intersect_busco_predict_dir}intersect_busco_{wildcards.species}_nooverlap_colnotsep.gff > {output.nooverlap_busco_predict}
+##rm {intersect_busco_predict_dir}intersect_busco_{wildcards.species}_overlap_colnotsep.gff
+##rm {intersect_busco_predict_dir}intersect_busco_{wildcards.species}_nooverlap_colnotsep.gff

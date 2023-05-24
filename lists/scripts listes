@@ -1,0 +1,101 @@
+/beegfs/data/aportal/horizon/lists/03_triplets_01.tsv #infos triplets
+
+###Table species_list
+awk '$2=="pph" || $2=="hhp" {print $3}' /beegfs/data/aportal/horizon/lists/03_triplets_01.tsv | sort | uniq > /beegfs/data/aportal/horizon/lists/species_list_full.txt
+
+###Table triplets_id_list
+awk '$2=="pph" || $2=="hhp" {print $6}' /beegfs/data/aportal/horizon/lists/03_triplets_01.tsv | sort | uniq > /beegfs/data/aportal/horizon/lists/triplets_id_list_full.txt
+
+###Table triplets_list
+awk '$2=="pph" || $2=="hhp" {print "triplet_"$6}' /beegfs/data/aportal/horizon/lists/03_triplets_01.tsv | sort | uniq > /beegfs/data/aportal/horizon/lists/triplets_list_full.txt
+
+###Table triplets_content
+
+#!/usr/bin/python3
+
+#Ligne de commande : 
+##python3 list_triplets_maker.py -it /beegfs/data/aportal/horizon/lists/03_triplets_01.tsv -il /beegfs/data/aportal/horizon/lists/triplets_list_full.txt -o /beegfs/data/aportal/horizon/lists/triplets_content_table_full.txt
+
+#Importer packages: 
+import argparse 
+
+def list_triplets_maker(input_triplet_table, input_triplet_id_list):
+    """
+    Creates list_triplets_content
+    """
+        
+    #open input file and read lines : 
+    f=open(input_triplet_table,"r")
+    in_table=f.readlines()
+
+    #open second input file and read lines : 
+    g=open(input_triplet_id_list,"r")
+    in_list=g.readlines()
+
+    dico={}
+
+    for i in in_list:
+        line2=i.strip()
+        dico[line2]={}
+        pouet=0
+        for l in in_table: 
+            line=l.strip().split("\t")
+            if line[5]==line2 :
+                pouet=1
+                #clade
+                clade=str(line[3])
+                #type
+                if line[1]=="pph":
+                    triplet_type="HPP"
+                elif line[1]=="hhp":
+                    triplet_type="PHH"
+            #species
+                if line[1]=="pph" and line[4]=="H" or line[1]=="hhp" and line[4]=="P" :
+                    HorP=str(line[2])
+                elif line[1]=="pph" and line[4]=="P1" or line[1]=="hhp" and line[4]=="H1" :
+                    P1orH1=str(line[2])
+                elif line[1]=="pph" and line[4]=="P2" or line[1]=="hhp" and line[4]=="H2" :
+                    P2orH2=str(line[2])
+        if pouet==1 : 
+            dico[line2]["clade"]=clade
+            dico[line2]["type"]=triplet_type
+            dico[line2]["HorP"]=HorP
+            dico[line2]["P1orH1"]=P1orH1
+            dico[line2]["P2orH2"]=P2orH2
+
+    return dico
+
+
+def write_out(dico, output):
+        
+        #open output file :
+    out=open(output,"w")
+
+    #write header
+    out.write("triplet_id\tclade\ttriplet_type\tH_P\tP1_H1\tP2_H2\n")   
+
+    for triplet in sorted(dico.keys()):
+        out.write("triplet_{}\t{}\t{}\t{}\t{}\t{}\n".format(str(triplet),str(dico[triplet]["clade"]),str(dico[triplet]["type"]),str(dico[triplet]["HorP"]),str(dico[triplet]["P1orH1"]),str(dico[triplet]["P2orH2"])))
+
+
+def main(): 
+    parser = argparse.ArgumentParser()
+        
+    #input:
+    parser.add_argument('-it', '--input_table', type=str, help='triplets informations')
+    #second input:
+    parser.add_argument('-il', '--input_list', type=str, help='triplets id list')
+    #output: 
+    parser.add_argument('-o', '--output', type=str, help='table of triplets information')                     
+
+    args = parser.parse_args()
+        
+    #Lancer fonctions: 
+    print("Starting the triplet content table")
+    dictionnaire=list_triplets_maker(args.input_table,args.input_list)
+    write_out(dictionnaire,args.output)
+    print("The table has been completed")
+        
+
+if "__main__" == __name__:
+    main()

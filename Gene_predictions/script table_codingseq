@@ -1,0 +1,81 @@
+##TABLEAU CODINGSEQ
+#Ouvrir liste noms d'espèces & ouvrir liste methodes
+list_species=`cat /beegfs/data/aportal/horizon/lists/species_list_full.txt`
+#On crée le fichier final et on y insère un header :
+echo species nb_cds total_length genome_coverage > table_cds_tmp.txt
+#On crée la boucle
+for i in $list_species
+    do
+        echo $i > tmp_codingseq.txt
+        grep -c '>' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_$i\.fa >> /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/tmp_codingseq.txt
+        awk '/^>/ { if (seqlen) {
+                      seqlen
+                      }
+                    seqtotal+=seqlen
+                    seqlen=0
+                    seq+=1
+                    next
+                    }
+            {
+            seqlen += length($0)
+            }     
+            END{print seqtotal+seqlen 
+            }' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/codingseq_$i\.fa >> /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/tmp_codingseq.txt #Ltot 
+        awk -v sp="$i" '$1==sp {print $2}' /beegfs/project/horizon/data/stats/quast/species/Species_genome_stats.txt >> /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/tmp_codingseq.txt #Ltot_genomes
+        paste -sd ' ' /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/tmp_codingseq.txt >> /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/table_cds_tmp.txt
+        rm /beegfs/data/aportal/horizon/Genes_prediction/Augustus/codingseq/tmp_codingseq.txt
+    done
+
+164821463
+
+
+#!/usr/bin/python3
+
+#Ligne de commande : 
+##python3 genome_coverage.py -i table_cds_tmp.txt -o table_cds.txt
+
+#Importer packages: 
+import argparse 
+
+def genome_coverage(input_file, output_file):
+    """
+    calculates genome coverage of predictions
+    """
+
+    #open input file and read lines : 
+    f=open(input_file,"r")
+    in_file=f.readlines()       
+
+    #open output file :
+    out_file=open(output_file,"w")
+
+    out_file.write("species\tnb_cds\ttotal_length\tgenome_coverage\n")
+
+    firstline=in_file.pop(0)
+    for l in in_file: 
+        line=l.strip().split(" ")
+        cov_gen=int(line[2])/int(line[3])
+        out_file.write("{}\t{}\t{}\t{}\n".format(str(line[0]),str(line[1]),str(line[2]),str(cov_gen)))
+
+
+def main(): 
+    parser = argparse.ArgumentParser()
+        
+    #input:
+    parser.add_argument('-i', '--input', type=str, help='txt list')
+    #output: 
+    parser.add_argument('-o', '--output', type=str, help='txt list')                     
+
+    args = parser.parse_args()
+        
+    #Lancer fonctions: 
+    print("Starting calculations")
+    genome_coverage(args.input,args.output)
+    print("The calculations has been completed")
+        
+
+if "__main__" == __name__:
+    main()
+
+
+rm table_codinseq_tmp.txt
