@@ -367,3 +367,6 @@ colnames(inter_dSdNdistlength_scores) <- c("i","j","dS","dN","dist","align_lengt
 myfile <- file.path(paste0("/beegfs/data/aportal/horizon/Clustering/clusters_of_interest/",triplet_nb,"/msa_",triplet_nb,"/"), paste0("align_scores_table_",name_of_cluster_file,".txt"))
 write.table(inter_dSdNdistlength_scores, file = myfile, sep = "\t", dec=".", row.names = FALSE, col.names = TRUE,
             quote = FALSE, append = FALSE)
+
+
+#Test
